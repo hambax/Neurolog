@@ -1,8 +1,8 @@
 const STORAGE_KEY = "neurolog_entries_v1";
 const PATIENT_KEY = "neurolog_patient_v1";
 const NAV_KEY = "neurolog_nav_collapsed_v1";
-const MEDICATION_OPTIONS_KEY = "neurolog_medication_options_v2";
-const CAREGIVER_OPTIONS_KEY = "neurolog_caregiver_options_v1";
+const MEDICATION_OPTIONS_KEY = "neurolog_medication_options_v3";
+const CAREGIVER_OPTIONS_KEY = "neurolog_caregiver_options_v2";
 const SHEET_API_URL_KEY = "neurolog_sheet_api_url_v1";
 const DEFAULT_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxgT7Jy4EkygawrzfEm6k1LBKLcUdW1ro_U2_gI5ELUfHvjHymkA90KfbYfE2An3cR1/exec";
 const GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1hGzv8MHI8NURpMbNap-SIUH-1La8ggM9hgkVU8POv3c/edit?usp=sharing";
@@ -34,11 +34,15 @@ const presets = {
   behaviours: ["Confusion", "Agitation", "Repetition", "Forgetfulness", "Mood swing", "Withdrawal", "Restlessness", "Poor concentration", "Speech change", "Balance issue", "Unusual behaviour"],
   severity: ["Mild", "Moderate", "Severe"],
   medications: [
-    { name: "Dexamethasone", defaultDose: "2mg tablets" },
-    { name: "Paracetamol", defaultDose: "500mg tablets" },
-    { name: "Ibuprofen", defaultDose: "200mg tablets" }
+    { name: "Dexamethasone", defaultDose: "4mg per tablet" },
+    { name: "Ondansetron", defaultDose: "4mg per tablet" },
+    { name: "Candesartan cilexetil", defaultDose: "16mg per tablet" },
+    { name: "Atorvastatin", defaultDose: "40mg per tablet" },
+    { name: "Omeprazole", defaultDose: "20mg per tablet" },
+    { name: "Paracetamol", defaultDose: "500mg per tablet" },
+    { name: "Ibuprofen", defaultDose: "200mg per tablet" }
   ],
-  caregivers: ["Alison", "Hamish", "Tami", "Nurse", "Doctor", "Family member", "Friend"]
+  caregivers: ["Alison", "Hamish", "Tami", "Nurse", "Doctor", "Paramedic", "Family member", "Friend"]
 };
 
 const appView = document.querySelector('[data-view="app"]');
@@ -660,7 +664,7 @@ function renderSettings() {
           <input name="medicationName_${index}" type="text" value="${escapeHtml(medication.name)}" />
         </label>
         <label>
-          Default dose/unit
+          Single pill size
           <input name="medicationDose_${index}" type="text" value="${escapeHtml(medication.defaultDose)}" />
         </label>
         ${settingsActionButton("medication", index, dirtySettings.medication.has(index))}
@@ -777,9 +781,13 @@ function normalizeMedicationOptions(options) {
 
 function defaultDoseForMedication(name) {
   const normalized = name.toLowerCase();
-  if (normalized.includes("ibuprofen")) return "200mg tablets";
-  if (normalized.includes("paracetamol")) return "500mg tablets";
-  if (normalized.includes("dexamethasone")) return "2mg tablets";
+  if (normalized.includes("ibuprofen")) return "200mg per tablet";
+  if (normalized.includes("paracetamol")) return "500mg per tablet";
+  if (normalized.includes("omeprazole")) return "20mg per tablet";
+  if (normalized.includes("atorvastatin")) return "40mg per tablet";
+  if (normalized.includes("candesartan")) return "16mg per tablet";
+  if (normalized.includes("ondansetron")) return "4mg per tablet";
+  if (normalized.includes("dexamethasone") || normalized.includes("dexamethazone")) return "4mg per tablet";
   return "";
 }
 
@@ -831,14 +839,14 @@ function fieldsForType(type) {
           <input name="newMedicationName" type="text" placeholder="Medication name" />
         </label>
         <label>
-          Normal dose/unit
-          <input name="newMedicationDose" type="text" placeholder="e.g. 200mg tablets" />
+          Single pill size
+          <input name="newMedicationDose" type="text" placeholder="e.g. 200mg per tablet" />
         </label>
       </div>
       <div class="field-row">
         <label>
           Dose
-          <input name="dose" type="text" placeholder="Dose" value="${escapeHtml(medicationDefaultDose(defaultMedication))}" />
+          <input name="dose" type="text" placeholder="${escapeHtml(medicationDefaultDose(defaultMedication) || "Dose given")}" />
         </label>
         ${quickSelectField("givenBy", "Given by", presets.caregivers, "Alison")}
       </div>
@@ -893,7 +901,6 @@ async function handleEntrySubmit(event) {
 
     if (newMedicationName) {
       entry.medicationName = newMedicationName;
-      if (!entry.dose) entry.dose = newMedicationDose || "";
       if (!presets.medications.some((option) => option.name.toLowerCase() === newMedicationName.toLowerCase())) {
         presets.medications.push({ name: newMedicationName, defaultDose: newMedicationDose || "" });
         saveMedicationOptions();
@@ -1141,7 +1148,8 @@ dynamicFields.addEventListener("change", (event) => {
   const select = event.target.closest("[data-quick-select]");
   if (select) toggleInlineAddFields(select.name, select.value === "__add__");
   if (select?.name === "medicationName" && select.value !== "__add__" && entryForm.elements.dose) {
-    entryForm.elements.dose.value = medicationDefaultDose(select.value);
+    entryForm.elements.dose.placeholder = medicationDefaultDose(select.value) || "Dose given";
+    entryForm.elements.dose.value = "";
   }
 });
 dynamicFields.addEventListener("input", (event) => {
