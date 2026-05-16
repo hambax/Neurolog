@@ -53,6 +53,7 @@ const medicationSettingsList = document.querySelector("#medicationSettingsList")
 const caregiverSettingsList = document.querySelector("#caregiverSettingsList");
 const saveSettingsTopButton = document.querySelector("#saveSettingsTopButton");
 const sheetApiUrlInput = document.querySelector("#sheetApiUrl");
+const copySetupLinkButton = document.querySelector("#copySetupLinkButton");
 const exportScope = document.querySelector("#exportScope");
 const exportFrom = document.querySelector("#exportFrom");
 const exportTo = document.querySelector("#exportTo");
@@ -79,17 +80,19 @@ function loadState() {
   const savedMedications = localStorage.getItem(MEDICATION_OPTIONS_KEY);
   const savedCaregivers = localStorage.getItem(CAREGIVER_OPTIONS_KEY);
   const savedSheetApiUrl = localStorage.getItem(SHEET_API_URL_KEY);
+  const setupSheetApiUrl = setupSheetUrlFromLocation();
 
   state.entries = savedEntries ? JSON.parse(savedEntries) : seedEntries();
   state.patient = savedPatient ? JSON.parse(savedPatient) : state.patient;
   presets.medications = normalizeMedicationOptions(savedMedications ? JSON.parse(savedMedications) : presets.medications);
   presets.caregivers = savedCaregivers ? JSON.parse(savedCaregivers) : presets.caregivers;
-  sheetApiUrl = savedSheetApiUrl || "";
+  sheetApiUrl = setupSheetApiUrl || savedSheetApiUrl || "";
 
   if (!savedEntries) saveEntries();
   if (!savedPatient) savePatient();
   if (!savedMedications || savedMedications.includes('"')) saveMedicationOptions();
   if (!savedCaregivers) saveCaregiverOptions();
+  if (setupSheetApiUrl) saveSheetApiUrlValue(setupSheetApiUrl);
 }
 
 function seedEntries() {
@@ -102,6 +105,23 @@ function saveEntries() {
 
 function syncEnabled() {
   return sheetApiUrl.startsWith("https://");
+}
+
+function setupSheetUrlFromLocation() {
+  const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const value = params.get("sheet") || params.get("sync") || hashParams.get("sheet") || hashParams.get("sync");
+  if (!value) return "";
+
+  const decoded = decodeURIComponent(value).trim();
+  if (!decoded.startsWith("https://script.google.com/macros/s/")) return "";
+
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete("sheet");
+  cleanUrl.searchParams.delete("sync");
+  if (hashParams.has("sheet") || hashParams.has("sync")) cleanUrl.hash = "";
+  window.history.replaceState({}, document.title, cleanUrl.toString());
+  return decoded;
 }
 
 function jsonpRequest(params) {
@@ -174,12 +194,24 @@ function saveCaregiverOptions() {
 }
 
 function saveSheetApiUrl() {
-  sheetApiUrl = sheetApiUrlInput.value.trim();
-  if (sheetApiUrl) {
-    localStorage.setItem(SHEET_API_URL_KEY, sheetApiUrl);
+  saveSheetApiUrlValue(sheetApiUrlInput.value.trim());
+}
+
+function saveSheetApiUrlValue(value) {
+  sheetApiUrl = value;
+  if (value) {
+    localStorage.setItem(SHEET_API_URL_KEY, value);
   } else {
     localStorage.removeItem(SHEET_API_URL_KEY);
   }
+}
+
+function publicSetupLink() {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("sync", sheetApiUrlInput.value.trim() || sheetApiUrl);
+  return url.toString();
 }
 
 function setSession(isActive) {
@@ -1000,6 +1032,24 @@ saveSettingsTopButton.addEventListener("click", () => {
   dirtySettings.sheet = false;
   renderSettings();
   updateSettingsSaveButton();
+});
+copySetupLinkButton.addEventListener("click", async () => {
+  saveSheetApiUrl();
+  if (!syncEnabled()) {
+    alert("Add the Apps Script Web App URL first, then copy the setup link.");
+    return;
+  }
+
+  const link = publicSetupLink();
+  try {
+    await navigator.clipboard.writeText(link);
+    copySetupLinkButton.innerHTML = '<span class="material-symbols-outlined">check</span> Copied';
+    setTimeout(() => {
+      copySetupLinkButton.innerHTML = '<span class="material-symbols-outlined">link</span> Copy setup link';
+    }, 1800);
+  } catch (error) {
+    window.prompt("Copy this setup link and open it once in each browser/device:", link);
+  }
 });
 
 entryForm.addEventListener("submit", handleEntrySubmit);

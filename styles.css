@@ -743,7 +743,7 @@ nav {
 }
 
 .settings-row.sheet-settings-row {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .settings-action {
@@ -1281,7 +1281,8 @@ legend {
   .field-row,
   .inline-add-fields,
   .settings-row,
-  .settings-row.caregiver-row {
+  .settings-row.caregiver-row,
+  .settings-row.sheet-settings-row {
     grid-template-columns: 1fr;
   }
 
