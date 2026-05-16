@@ -5,6 +5,7 @@ const MEDICATION_OPTIONS_KEY = "neurolog_medication_options_v2";
 const CAREGIVER_OPTIONS_KEY = "neurolog_caregiver_options_v1";
 const SHEET_API_URL_KEY = "neurolog_sheet_api_url_v1";
 const DEFAULT_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxgT7Jy4EkygawrzfEm6k1LBKLcUdW1ro_U2_gI5ELUfHvjHymkA90KfbYfE2An3cR1/exec";
+const GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1hGzv8MHI8NURpMbNap-SIUH-1La8ggM9hgkVU8POv3c/edit?usp=sharing";
 let sheetApiUrl = DEFAULT_SHEET_API_URL;
 
 const state = {
@@ -63,6 +64,9 @@ const datePicker = document.querySelector("#datePicker");
 const timePicker = document.querySelector("#timePicker");
 const dateDisplay = document.querySelector("#dateDisplay");
 const timeDisplay = document.querySelector("#timeDisplay");
+const pdfPreviewDialog = document.querySelector("#pdfPreviewDialog");
+const pdfPreviewContent = document.querySelector("#pdfPreviewContent");
+const pdfPrintArea = document.querySelector("#pdfPrintArea");
 
 let pickerMonth = new Date();
 const dirtySettings = {
@@ -498,6 +502,96 @@ function exportRows() {
   }));
 }
 
+function exportRangeLabel() {
+  return exportScope.value === "range"
+    ? `${exportFrom.value || "Start"} to ${exportTo.value || "Today"}`
+    : "All logs";
+}
+
+function printableRows() {
+  return exportEntries().map((entry) => {
+    const detailParts = [];
+    if (entry.medicationName) detailParts.push(entry.medicationName);
+    if (entry.dose) detailParts.push(entry.dose);
+    if (entry.givenBy) detailParts.push(`Given by ${entry.givenBy}`);
+    if (entryValue(entry.feeling)) detailParts.push(`Feeling: ${entryValue(entry.feeling)}`);
+    if (entryValue(entry.symptom)) detailParts.push(`Symptom: ${entryValue(entry.symptom)}`);
+    if (entryValue(entry.behaviour)) detailParts.push(`Behaviour: ${entryValue(entry.behaviour)}`);
+
+    return {
+      date: entry.date || "",
+      time: formatTime(entry.time || "00:00"),
+      category: entry.type || "",
+      details: detailParts.join(" · ") || entry.type || "",
+      severity: entry.type === "Symptom" && entry.severity ? severityLabel(entry.severity) : entry.severity || "",
+      notes: entry.notes || ""
+    };
+  });
+}
+
+function pdfDocumentHtml() {
+  const rows = printableRows();
+  const generatedAt = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date());
+
+  return `
+    <section class="pdf-page">
+      <header class="pdf-header">
+        <div>
+          <p>Neurolog care log</p>
+          <h1>Doctor review export</h1>
+        </div>
+        <div>
+          <strong>${escapeHtml(exportRangeLabel())}</strong>
+          <span>${rows.length} ${rows.length === 1 ? "log" : "logs"}</span>
+        </div>
+      </header>
+      <table class="pdf-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Type</th>
+            <th>Details</th>
+            <th>Severity</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.length ? rows.map((row) => `
+            <tr>
+              <td>${escapeHtml(row.date)}</td>
+              <td>${escapeHtml(row.time)}</td>
+              <td>${escapeHtml(row.category)}</td>
+              <td>${escapeHtml(row.details)}</td>
+              <td>${escapeHtml(row.severity)}</td>
+              <td>${escapeHtml(row.notes)}</td>
+            </tr>
+          `).join("") : '<tr><td colspan="6">No logs in this export range.</td></tr>'}
+        </tbody>
+      </table>
+      <footer class="pdf-footer">
+        <span>Generated ${escapeHtml(generatedAt)}</span>
+        <span>${escapeHtml(GOOGLE_SHEET_URL)}</span>
+      </footer>
+    </section>
+  `;
+}
+
+function previewPdfExport() {
+  const html = pdfDocumentHtml();
+  pdfPreviewContent.innerHTML = html;
+  pdfPrintArea.innerHTML = html;
+  pdfPreviewDialog.showModal();
+}
+
+function printPdfExport() {
+  pdfPrintArea.innerHTML = pdfDocumentHtml();
+  window.print();
+}
+
 function csvEscape(value) {
   const text = String(value ?? "");
   if (/[",\n\r]/.test(text)) return `"${text.replaceAll('"', '""')}"`;
@@ -536,17 +630,14 @@ function downloadExport() {
 
 function emailExport() {
   const rows = exportRows();
-  const csv = exportCsv();
-  const subject = encodeURIComponent(`Neurolog care log export (${rows.length} ${rows.length === 1 ? "log" : "logs"})`);
-  const rangeText = exportScope.value === "range" ? `Date range: ${exportFrom.value || "start"} to ${exportTo.value || "today"}` : "Date range: all logs";
+  const subject = encodeURIComponent(`Neurolog care log sheet (${rows.length} ${rows.length === 1 ? "log" : "logs"})`);
   const body = encodeURIComponent([
-    "Neurolog care log export for doctor review.",
+    "Neurolog care log for doctor review:",
     "",
-    rangeText,
+    GOOGLE_SHEET_URL,
+    "",
+    `Date range selected in app: ${exportRangeLabel()}`,
     `Log count: ${rows.length}`,
-    "",
-    "CSV data:",
-    csv
   ].join("\n"));
   window.location.href = `mailto:?subject=${subject}&body=${body}`;
 }
@@ -990,6 +1081,8 @@ exportFrom.addEventListener("change", renderExportCount);
 exportTo.addEventListener("change", renderExportCount);
 document.querySelector("#downloadExportButton").addEventListener("click", downloadExport);
 document.querySelector("#emailExportButton").addEventListener("click", emailExport);
+document.querySelector("#previewPdfButton").addEventListener("click", previewPdfExport);
+document.querySelector("#printPdfButton").addEventListener("click", printPdfExport);
 document.querySelector("#clearDemoButton").addEventListener("click", () => {
   state.entries = [];
   saveEntries();

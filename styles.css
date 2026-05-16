@@ -644,7 +644,7 @@ nav {
   display: grid;
   gap: 12px;
   grid-column: 4;
-  grid-template-columns: minmax(150px, 180px) minmax(190px, 220px);
+  grid-template-columns: minmax(170px, 1fr) minmax(150px, 1fr) minmax(190px, 1fr);
   justify-content: flex-end;
   min-width: 0;
 }
@@ -654,6 +654,126 @@ nav {
   inline-size: 100%;
   min-width: 0;
   white-space: nowrap;
+}
+
+.pdf-dialog {
+  max-width: min(1120px, calc(100% - 28px));
+  width: min(1120px, calc(100% - 28px));
+}
+
+.pdf-dialog form {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+}
+
+.pdf-preview-content {
+  background: #e8eef5;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  max-height: min(68vh, 760px);
+  overflow: auto;
+  padding: 18px;
+}
+
+.pdf-page {
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  color: #111827;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 auto;
+  min-height: 210mm;
+  padding: 12mm;
+  width: 297mm;
+}
+
+.pdf-header,
+.pdf-footer {
+  align-items: end;
+  display: flex;
+  justify-content: space-between;
+}
+
+.pdf-header p {
+  color: var(--accent-strong);
+  font-size: 9pt;
+  font-weight: 800;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
+
+.pdf-header h1 {
+  font-size: 20pt;
+  line-height: 1;
+  margin: 0;
+}
+
+.pdf-header div:last-child {
+  color: #475569;
+  display: block;
+  font-size: 9pt;
+  min-width: 45mm;
+  text-align: right;
+}
+
+.pdf-header div:last-child strong,
+.pdf-header div:last-child span {
+  display: block;
+}
+
+.pdf-table {
+  border-collapse: collapse;
+  font-size: 8.5pt;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.pdf-table th,
+.pdf-table td {
+  border: 1px solid #dbe5ee;
+  padding: 6px;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.pdf-table th {
+  background: #eff8ff;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.pdf-table th:nth-child(1),
+.pdf-table td:nth-child(1) {
+  width: 22mm;
+}
+
+.pdf-table th:nth-child(2),
+.pdf-table td:nth-child(2) {
+  width: 20mm;
+}
+
+.pdf-table th:nth-child(3),
+.pdf-table td:nth-child(3) {
+  width: 24mm;
+}
+
+.pdf-table th:nth-child(5),
+.pdf-table td:nth-child(5) {
+  width: 22mm;
+}
+
+.pdf-footer {
+  color: #64748b;
+  font-size: 7.5pt;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.pdf-print-area {
+  display: none;
 }
 
 .patient-form,
@@ -1138,7 +1258,7 @@ legend {
 
   .export-actions {
     grid-column: 1 / -1;
-    grid-template-columns: minmax(150px, 180px) minmax(190px, 220px);
+    grid-template-columns: minmax(170px, 1fr) minmax(150px, 1fr) minmax(190px, 1fr);
     justify-content: start;
   }
 }
@@ -1256,5 +1376,33 @@ legend {
 
   h2 {
     font-size: 1.72rem;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  body > *:not(.pdf-print-area),
+  .pdf-dialog {
+    display: none !important;
+  }
+
+  .pdf-print-area {
+    display: block;
+  }
+
+  .pdf-page {
+    box-shadow: none;
+    margin: 0;
+    min-height: auto;
+    padding: 0;
+    width: auto;
   }
 }

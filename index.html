@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24..48,300,0,0" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=20260517-severity-slider" />
+    <link rel="stylesheet" href="./styles.css?v=20260517-export-pdf" />
   </head>
   <body>
     <main id="app">
@@ -145,7 +145,11 @@
                 <div class="export-actions">
                   <button class="ghost-button" id="emailExportButton" type="button">
                     <span class="material-symbols-outlined">mail</span>
-                    Email
+                    Email sheet link
+                  </button>
+                  <button class="ghost-button" id="previewPdfButton" type="button">
+                    <span class="material-symbols-outlined">picture_as_pdf</span>
+                    Preview PDF
                   </button>
                   <button class="primary-button" id="downloadExportButton" type="button">
                     <span class="material-symbols-outlined">download</span>
@@ -312,6 +316,30 @@
       </form>
     </dialog>
 
-    <script src="./app.js?v=20260517-severity-slider"></script>
+    <dialog id="pdfPreviewDialog" class="pdf-dialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Export</p>
+            <h3>PDF preview</h3>
+          </div>
+          <button class="icon-button" value="cancel" type="submit" title="Close">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div id="pdfPreviewContent" class="pdf-preview-content"></div>
+        <div class="dialog-actions">
+          <button class="ghost-button" value="cancel" type="submit">Close</button>
+          <button class="primary-button" id="printPdfButton" value="default" type="button">
+            <span class="material-symbols-outlined">print</span>
+            Print or save PDF
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="pdfPrintArea" class="pdf-print-area" aria-hidden="true"></div>
+
+    <script src="./app.js?v=20260517-export-pdf"></script>
   </body>
 </html>

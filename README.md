@@ -29,6 +29,8 @@ http://localhost:4173
 - Today timeline
 - Searchable history
 - Editable patient information
+- Email sharing of the Google Sheet link
+- CSV and A4 PDF exports with optional date range
 
 ## Google Sheets Database
 
