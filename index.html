@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neurolog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24..48,300,0,0" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css?v=20260517-severity-slider" />
+  </head>
+  <body>
+    <main id="app">
+      <section class="login-view" data-view="login">
+        <div class="login-shell">
+          <div class="brand-mark">
+            <span class="material-symbols-outlined">neurology</span>
+          </div>
+          <div>
+            <p class="eyebrow">Private family care log</p>
+            <h1>Neurolog</h1>
+            <p class="login-copy">A calm place to record medication, symptoms, feelings, and behaviour during recovery.</p>
+          </div>
+          <form id="loginForm" class="login-form">
+            <label for="password">Password</label>
+            <div class="password-row">
+              <span class="material-symbols-outlined">lock</span>
+              <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter demo password" required />
+            </div>
+            <button class="primary-button" type="submit">
+              <span class="material-symbols-outlined">login</span>
+              Open log
+            </button>
+            <p class="helper-text">Local preview password: <strong>care</strong></p>
+          </form>
+        </div>
+      </section>
+
+      <section class="app-view is-hidden" data-view="app">
+        <aside class="sidebar" aria-label="Primary navigation">
+          <div class="sidebar-header">
+            <div class="sidebar-brand">
+              <span class="material-symbols-outlined">neurology</span>
+              <strong>Neurolog</strong>
+            </div>
+            <button class="icon-button nav-toggle" id="navToggle" type="button" aria-label="Collapse navigation" aria-expanded="true">
+              <span class="material-symbols-outlined">left_panel_close</span>
+            </button>
+          </div>
+          <nav>
+            <button class="nav-button is-active" data-route="today" type="button">
+              <span class="material-symbols-outlined">today</span>
+              <span class="nav-label">Today</span>
+            </button>
+            <button class="nav-button" data-route="history" type="button">
+              <span class="material-symbols-outlined">history</span>
+              <span class="nav-label">History</span>
+            </button>
+            <button class="nav-button" data-route="patient" type="button">
+              <span class="material-symbols-outlined">clinical_notes</span>
+              <span class="nav-label">Patient</span>
+            </button>
+            <button class="nav-button" data-route="settings" type="button">
+              <span class="material-symbols-outlined">settings</span>
+              <span class="nav-label">Settings</span>
+            </button>
+          </nav>
+          <button class="ghost-button logout-button" id="logoutButton" type="button">
+            <span class="material-symbols-outlined">logout</span>
+            <span class="nav-label">Lock</span>
+          </button>
+        </aside>
+
+        <div class="main-shell">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow" id="dateLabel">Today</p>
+              <h2 id="routeTitle">Today</h2>
+            </div>
+            <div class="topbar-actions">
+              <button class="primary-button topbar-save is-hidden" id="saveSettingsTopButton" type="button" disabled>
+                <span class="material-symbols-outlined">save</span>
+                Save settings
+              </button>
+              <button class="icon-button" id="syncButton" type="button" title="Sync status">
+                <span class="material-symbols-outlined">cloud_done</span>
+              </button>
+            </div>
+          </header>
+
+          <section class="route is-active" data-route-panel="today">
+            <section class="quick-actions" aria-labelledby="quickActionsTitle">
+              <h3 id="quickActionsTitle">Quick log</h3>
+              <div class="quick-grid">
+                <button class="quick-button" data-entry-type="Medication" type="button">
+                  <span class="material-symbols-outlined">medication</span>
+                  <strong>Medication</strong>
+                </button>
+                <button class="quick-button" data-entry-type="Feeling" type="button">
+                  <span class="material-symbols-outlined">sentiment_satisfied</span>
+                  <strong>Feeling</strong>
+                </button>
+                <button class="quick-button" data-entry-type="Symptom" type="button">
+                  <span class="material-symbols-outlined">sick</span>
+                  <strong>Symptom</strong>
+                </button>
+                <button class="quick-button" data-entry-type="Behaviour" type="button">
+                  <span class="material-symbols-outlined">psychology</span>
+                  <strong>Behaviour</strong>
+                </button>
+                <button class="quick-button wide" data-entry-type="Note" type="button">
+                  <span class="material-symbols-outlined">edit_note</span>
+                  <strong>Care note</strong>
+                </button>
+              </div>
+            </section>
+
+            <div class="status-strip" aria-label="Today summary">
+              <div>
+                <span class="material-symbols-outlined">favorite</span>
+                <p>Last feeling</p>
+                <strong id="lastFeeling">No feeling logged yet</strong>
+              </div>
+              <div>
+                <span class="material-symbols-outlined">medication</span>
+                <p>Meds logged today</p>
+                <strong id="medsToday">0 logged</strong>
+              </div>
+              <div>
+                <span class="material-symbols-outlined">psychology</span>
+                <p>Behaviour notes</p>
+                <strong id="behavioursToday">0 today</strong>
+              </div>
+            </div>
+
+            <section class="timeline-section" aria-labelledby="timelineTitle">
+              <div class="section-heading">
+                <h3 id="timelineTitle">Today’s timeline</h3>
+                <button class="text-button" id="clearDemoButton" type="button">Reset demo data</button>
+              </div>
+              <div id="todayTimeline" class="timeline"></div>
+            </section>
+          </section>
+
+          <section class="route" data-route-panel="history">
+            <section class="export-panel" aria-labelledby="exportTitle">
+              <div class="section-heading">
+                <h3 id="exportTitle">Export for review</h3>
+                <span class="export-count" id="exportCount">0 logs</span>
+              </div>
+              <div class="export-controls">
+                <label>
+                  Export
+                  <select id="exportScope">
+                    <option value="all">All logs</option>
+                    <option value="range">Date range</option>
+                  </select>
+                </label>
+                <label class="export-date-field is-hidden">
+                  From
+                  <input id="exportFrom" type="date" />
+                </label>
+                <label class="export-date-field is-hidden">
+                  To
+                  <input id="exportTo" type="date" />
+                </label>
+                <div class="export-actions">
+                  <button class="ghost-button" id="emailExportButton" type="button">
+                    <span class="material-symbols-outlined">mail</span>
+                    Email
+                  </button>
+                  <button class="primary-button" id="downloadExportButton" type="button">
+                    <span class="material-symbols-outlined">download</span>
+                    Download CSV
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <div class="filters">
+              <div class="search-box">
+                <span class="material-symbols-outlined">search</span>
+                <input id="historySearch" type="search" placeholder="Search medication, symptom, behaviour, notes" />
+              </div>
+              <select id="typeFilter" aria-label="Filter by log type">
+                <option value="All">All logs</option>
+                <option value="Medication">Medication</option>
+                <option value="Feeling">Feeling</option>
+                <option value="Symptom">Symptom</option>
+                <option value="Behaviour">Behaviour</option>
+                <option value="Note">Notes</option>
+              </select>
+            </div>
+            <div id="historyTimeline" class="timeline"></div>
+          </section>
+
+          <section class="route" data-route-panel="patient">
+            <form id="patientForm" class="patient-form">
+              <label>
+                Patient name
+                <input name="name" type="text" />
+              </label>
+              <label>
+                Recovery context
+                <textarea name="context" rows="3"></textarea>
+              </label>
+              <label>
+                Current medication list
+                <textarea name="medications" rows="4"></textarea>
+              </label>
+              <label>
+                Symptoms to watch
+                <textarea name="watchList" rows="4"></textarea>
+              </label>
+              <label>
+                Emergency plan
+                <textarea name="emergency" rows="4"></textarea>
+              </label>
+              <button class="primary-button" type="submit">
+                <span class="material-symbols-outlined">save</span>
+                Save patient info
+              </button>
+            </form>
+          </section>
+
+          <section class="route" data-route-panel="settings">
+            <form id="settingsForm" class="settings-form">
+              <section class="settings-panel">
+                <div class="section-heading">
+                  <h3>Google Sheets sync</h3>
+                </div>
+                <div class="settings-row sheet-settings-row">
+                  <label>
+                    Apps Script Web App URL
+                    <input id="sheetApiUrl" name="sheetApiUrl" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec" />
+                  </label>
+                </div>
+              </section>
+
+              <section class="settings-panel">
+                <div class="section-heading">
+                  <h3>Default medications</h3>
+                  <button class="text-button" id="addMedicationSetting" type="button">Add medication</button>
+                </div>
+                <div id="medicationSettingsList" class="settings-list"></div>
+              </section>
+
+              <section class="settings-panel">
+                <div class="section-heading">
+                  <h3>Default caregivers</h3>
+                  <button class="text-button" id="addCaregiverSetting" type="button">Add caregiver</button>
+                </div>
+                <div id="caregiverSettingsList" class="settings-list"></div>
+              </section>
+            </form>
+          </section>
+        </div>
+
+        <nav class="bottom-nav" aria-label="Mobile navigation">
+          <button class="nav-button is-active" data-route="today" type="button">
+            <span class="material-symbols-outlined">today</span>
+            Today
+          </button>
+          <button class="nav-button" data-route="history" type="button">
+            <span class="material-symbols-outlined">history</span>
+            History
+          </button>
+          <button class="nav-button" data-route="patient" type="button">
+            <span class="material-symbols-outlined">clinical_notes</span>
+            Patient
+          </button>
+          <button class="nav-button" data-route="settings" type="button">
+            <span class="material-symbols-outlined">settings</span>
+            Settings
+          </button>
+        </nav>
+      </section>
+    </main>
+
+    <dialog id="entryDialog">
+      <form id="entryForm" method="dialog">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow" id="entryEyebrow">Quick log</p>
+            <h3 id="entryTitle">Medication</h3>
+          </div>
+          <button class="icon-button" value="cancel" type="submit" title="Close">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <input type="hidden" name="type" />
+
+        <div class="field-row date-time-row">
+          <div class="picker-field">
+            <span>Date</span>
+            <button class="picker-control" data-picker="date" type="button">
+              <span id="dateDisplay">Today</span>
+              <span class="material-symbols-outlined">calendar_month</span>
+            </button>
+            <input name="date" type="hidden" />
+          </div>
+          <div class="picker-field">
+            <span>Time</span>
+            <button class="picker-control" data-picker="time" type="button">
+              <span id="timeDisplay">Now</span>
+              <span class="material-symbols-outlined">schedule</span>
+            </button>
+            <input name="time" type="hidden" />
+          </div>
+        </div>
+
+        <div class="picker-popover is-hidden" id="datePicker" aria-label="Choose date"></div>
+        <div class="picker-popover time-popover is-hidden" id="timePicker" aria-label="Choose time"></div>
+
+        <div class="dynamic-fields" id="dynamicFields"></div>
+
+        <label>
+          Notes
+          <textarea name="notes" rows="3" placeholder="What happened? What helped?"></textarea>
+        </label>
+
+        <div class="dialog-actions">
+          <button class="ghost-button" value="cancel" type="submit">Cancel</button>
+          <button class="primary-button" id="saveEntryButton" value="default" type="submit">
+            <span class="material-symbols-outlined">add_circle</span>
+            Save log
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./app.js?v=20260517-severity-slider"></script>
+  </body>
+</html>
