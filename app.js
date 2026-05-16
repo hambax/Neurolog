@@ -1,11 +1,9 @@
 const STORAGE_KEY = "neurolog_entries_v1";
 const PATIENT_KEY = "neurolog_patient_v1";
-const SESSION_KEY = "neurolog_session_v1";
 const NAV_KEY = "neurolog_nav_collapsed_v1";
 const MEDICATION_OPTIONS_KEY = "neurolog_medication_options_v2";
 const CAREGIVER_OPTIONS_KEY = "neurolog_caregiver_options_v1";
 const SHEET_API_URL_KEY = "neurolog_sheet_api_url_v1";
-const DEMO_PASSWORD = "care";
 const DEFAULT_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxgT7Jy4EkygawrzfEm6k1LBKLcUdW1ro_U2_gI5ELUfHvjHymkA90KfbYfE2An3cR1/exec";
 let sheetApiUrl = DEFAULT_SHEET_API_URL;
 
@@ -43,8 +41,6 @@ const presets = {
 };
 
 const appView = document.querySelector('[data-view="app"]');
-const loginView = document.querySelector('[data-view="login"]');
-const loginForm = document.querySelector("#loginForm");
 const entryDialog = document.querySelector("#entryDialog");
 const entryForm = document.querySelector("#entryForm");
 const dynamicFields = document.querySelector("#dynamicFields");
@@ -218,18 +214,6 @@ function publicSetupLink() {
   url.hash = "";
   url.searchParams.set("sync", sheetApiUrlInput.value.trim() || sheetApiUrl);
   return url.toString();
-}
-
-function setSession(isActive) {
-  if (isActive) {
-    sessionStorage.setItem(SESSION_KEY, "active");
-    loginView.classList.add("is-hidden");
-    appView.classList.remove("is-hidden");
-  } else {
-    sessionStorage.removeItem(SESSION_KEY);
-    loginView.classList.remove("is-hidden");
-    appView.classList.add("is-hidden");
-  }
 }
 
 function setNavCollapsed(isCollapsed) {
@@ -939,18 +923,6 @@ function removeQuickOption(name) {
   refreshMedicationFields();
 }
 
-loginForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const password = new FormData(loginForm).get("password");
-  if (password === DEMO_PASSWORD) {
-    setSession(true);
-    render();
-  } else {
-    loginForm.querySelector("#password").value = "";
-    loginForm.querySelector("#password").placeholder = "Try the local demo password";
-  }
-});
-
 document.querySelectorAll("[data-route]").forEach((button) => {
   button.addEventListener("click", () => setRoute(button.dataset.route));
 });
@@ -959,7 +931,6 @@ document.querySelectorAll("[data-entry-type]").forEach((button) => {
   button.addEventListener("click", () => openEntryDialog(button.dataset.entryType));
 });
 
-document.querySelector("#logoutButton").addEventListener("click", () => setSession(false));
 navToggle.addEventListener("click", () => {
   setNavCollapsed(!appView.classList.contains("nav-collapsed"));
 });
@@ -1173,7 +1144,6 @@ function saveSettingsFromForm() {
 
 loadState();
 setNavCollapsed(localStorage.getItem(NAV_KEY) === "true");
-setSession(sessionStorage.getItem(SESSION_KEY) === "active");
 setRoute("today");
 render();
 loadEntriesFromSheet().catch(() => {});

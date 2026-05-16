@@ -18,16 +18,9 @@ Then open:
 http://localhost:4173
 ```
 
-The local demo password is:
-
-```text
-care
-```
-
 ## MVP Scope
 
 - One patient only
-- Password screen for local preview
 - Quick medication logging
 - Quick feeling logging
 - Quick symptom logging

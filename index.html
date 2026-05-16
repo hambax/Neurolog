@@ -17,32 +17,7 @@
   </head>
   <body>
     <main id="app">
-      <section class="login-view" data-view="login">
-        <div class="login-shell">
-          <div class="brand-mark">
-            <span class="material-symbols-outlined">neurology</span>
-          </div>
-          <div>
-            <p class="eyebrow">Private family care log</p>
-            <h1>Neurolog</h1>
-            <p class="login-copy">A calm place to record medication, symptoms, feelings, and behaviour during recovery.</p>
-          </div>
-          <form id="loginForm" class="login-form">
-            <label for="password">Password</label>
-            <div class="password-row">
-              <span class="material-symbols-outlined">lock</span>
-              <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter demo password" required />
-            </div>
-            <button class="primary-button" type="submit">
-              <span class="material-symbols-outlined">login</span>
-              Open log
-            </button>
-            <p class="helper-text">Local preview password: <strong>care</strong></p>
-          </form>
-        </div>
-      </section>
-
-      <section class="app-view is-hidden" data-view="app">
+      <section class="app-view" data-view="app">
         <aside class="sidebar" aria-label="Primary navigation">
           <div class="sidebar-header">
             <div class="sidebar-brand">
@@ -71,10 +46,6 @@
               <span class="nav-label">Settings</span>
             </button>
           </nav>
-          <button class="ghost-button logout-button" id="logoutButton" type="button">
-            <span class="material-symbols-outlined">logout</span>
-            <span class="nav-label">Lock</span>
-          </button>
         </aside>
 
         <div class="main-shell">
