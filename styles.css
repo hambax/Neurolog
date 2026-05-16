@@ -636,14 +636,36 @@ nav {
 .export-controls {
   align-items: end;
   display: grid;
-  gap: 12px;
-  grid-template-columns: 180px 150px 150px 1fr;
+  gap: 14px;
+  grid-template-columns: minmax(220px, 280px) minmax(150px, 180px) minmax(150px, 180px) minmax(360px, 1fr);
+}
+
+.export-controls > label:first-child {
+  grid-column: 1;
+}
+
+.export-controls .export-date-field {
+  grid-column: 2;
+}
+
+.export-controls .export-date-field + .export-date-field {
+  grid-column: 3;
 }
 
 .export-actions {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  gap: 12px;
+  grid-column: 4;
+  grid-template-columns: minmax(150px, 180px) minmax(190px, 220px);
   justify-content: flex-end;
+  min-width: 0;
+}
+
+.export-actions .ghost-button,
+.export-actions .primary-button {
+  inline-size: 100%;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .patient-form,
@@ -1121,6 +1143,18 @@ legend {
   display: none;
 }
 
+@media (max-width: 1180px) {
+  .export-controls {
+    grid-template-columns: minmax(220px, 280px) repeat(2, minmax(150px, 1fr));
+  }
+
+  .export-actions {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(150px, 180px) minmax(190px, 220px);
+    justify-content: start;
+  }
+}
+
 @media (max-width: 840px) {
   .app-view {
     display: block;
@@ -1138,6 +1172,13 @@ legend {
   .filters,
   .export-controls {
     grid-template-columns: 1fr;
+  }
+
+  .export-controls > label:first-child,
+  .export-controls .export-date-field,
+  .export-controls .export-date-field + .export-date-field,
+  .export-actions {
+    grid-column: 1;
   }
 
   .export-actions {
