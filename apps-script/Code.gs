@@ -42,6 +42,13 @@ function doPost(event) {
     return jsonResponse({}, { ok: true });
   }
 
+  if (payload.action === "deleteLog") {
+    return jsonResponse({}, {
+      ok: true,
+      deleted: deleteLog(payload.id)
+    });
+  }
+
   return jsonResponse({}, {
     ok: false,
     error: "Unknown action"
@@ -115,6 +122,21 @@ function appendLog(entry) {
     normalized.notes,
     JSON.stringify(normalized)
   ]);
+}
+
+function deleteLog(id) {
+  if (!id) return false;
+
+  const sheet = logSheet();
+  const values = sheet.getDataRange().getValues();
+  for (let index = values.length - 1; index >= 1; index -= 1) {
+    if (String(values[index][0]) === String(id)) {
+      sheet.deleteRow(index + 1);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function logSheet() {

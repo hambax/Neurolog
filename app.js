@@ -57,6 +57,7 @@ const exportScope = document.querySelector("#exportScope");
 const exportFrom = document.querySelector("#exportFrom");
 const exportTo = document.querySelector("#exportTo");
 const exportCount = document.querySelector("#exportCount");
+const syncHint = document.querySelector("#syncHint");
 const dateLabel = document.querySelector("#dateLabel");
 const routeTitle = document.querySelector("#routeTitle");
 const navToggle = document.querySelector("#navToggle");
@@ -146,6 +147,17 @@ function appendEntryToSheet(entry) {
     body: JSON.stringify({ action: "appendLog", entry })
   }).catch(() => {
     // Keep local data intact; the caregiver can sync again later.
+  });
+}
+
+function deleteEntryFromSheet(id) {
+  if (!syncEnabled() || !id) return;
+  fetch(sheetApiUrl, {
+    method: "POST",
+    mode: "no-cors",
+    body: JSON.stringify({ action: "deleteLog", id })
+  }).catch(() => {
+    // Local deletion stays in place; a later sync can reconcile the sheet.
   });
 }
 
@@ -367,7 +379,7 @@ function entryMeta(entry) {
   return pieces.join(" · ");
 }
 
-function renderTimeline(container, entries) {
+function renderTimeline(container, entries, options = {}) {
   if (!entries.length) {
     container.innerHTML = '<div class="empty-state">No logs yet. Use quick log to add the first one.</div>';
     return;
@@ -385,7 +397,14 @@ function renderTimeline(container, entries) {
             <h4>${escapeHtml(entryTitle(entry))}</h4>
             <p>${escapeHtml(entryMeta(entry) || entry.type)}</p>
           </div>
-          ${entry.time ? `<span class="time-pill ${isNightTime(entry.time) ? "time-night" : ""}" style="--time-gradient: ${daylightGradient(entry.time)}">${formatTimeHtml(entry.time)}</span>` : ""}
+          <div class="timeline-actions">
+            ${entry.time ? `<span class="time-pill ${isNightTime(entry.time) ? "time-night" : ""}" style="--time-gradient: ${daylightGradient(entry.time)}">${formatTimeHtml(entry.time)}</span>` : ""}
+            ${options.canDelete ? `
+              <button class="icon-button delete-log-button" data-delete-log="${escapeHtml(entry.id)}" type="button" title="Delete log" aria-label="Delete ${escapeHtml(entryTitle(entry))}">
+                <span class="material-symbols-outlined">delete</span>
+              </button>
+            ` : ""}
+          </div>
         </article>
       `;
     })
@@ -414,7 +433,7 @@ function renderHistory() {
     return matchesType && (!query || haystack.includes(query));
   });
 
-  renderTimeline(document.querySelector("#historyTimeline"), filtered);
+  renderTimeline(document.querySelector("#historyTimeline"), filtered, { canDelete: true });
   renderExportCount();
 }
 
@@ -430,6 +449,10 @@ function exportEntries() {
 function renderExportCount() {
   const count = exportEntries().length;
   exportCount.textContent = `${count} ${count === 1 ? "log" : "logs"}`;
+  syncHint.textContent = syncEnabled()
+    ? "Google Sheets sync is configured for this device."
+    : "Google Sheets sync is not configured on this device.";
+  syncHint.classList.toggle("is-synced", syncEnabled());
 }
 
 function entryValue(value) {
@@ -575,6 +598,7 @@ function setRoute(route) {
   document.querySelectorAll(".nav-button").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.route === route);
   });
+  if (route === "history") renderExportCount();
   updateSettingsSaveButton();
 }
 
@@ -774,17 +798,30 @@ function handleEntrySubmit(event) {
   delete entry.newMedicationName;
   delete entry.newMedicationDose;
   delete entry.newCaregiverName;
-  state.entries.push({
+  const savedEntry = {
     ...entry,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString()
-  });
+  };
+  state.entries.push(savedEntry);
 
   saveEntries();
-  appendEntryToSheet(entry);
+  appendEntryToSheet(savedEntry);
   entryDialog.close();
   render();
   setRoute("today");
+}
+
+function deleteEntry(id) {
+  const entry = state.entries.find((item) => item.id === id);
+  if (!entry) return;
+  const confirmed = window.confirm(`Delete this ${entry.type.toLowerCase()} log?`);
+  if (!confirmed) return;
+
+  state.entries = state.entries.filter((item) => item.id !== id);
+  saveEntries();
+  deleteEntryFromSheet(id);
+  render();
 }
 
 function escapeHtml(value) {
@@ -914,6 +951,11 @@ timePicker.addEventListener("click", (event) => {
 });
 document.querySelector("#historySearch").addEventListener("input", renderHistory);
 document.querySelector("#typeFilter").addEventListener("change", renderHistory);
+document.querySelector("#historyTimeline").addEventListener("click", (event) => {
+  const deleteButton = event.target.closest("[data-delete-log]");
+  if (!deleteButton) return;
+  deleteEntry(deleteButton.dataset.deleteLog);
+});
 exportScope.addEventListener("change", () => {
   const isRange = exportScope.value === "range";
   document.querySelectorAll(".export-date-field").forEach((field) => {

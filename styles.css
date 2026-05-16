@@ -568,6 +568,13 @@ nav {
   overflow-wrap: anywhere;
 }
 
+.timeline-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .time-pill {
   background: var(--time-gradient, #f1f5f9);
   border-radius: 999px;
@@ -576,6 +583,22 @@ nav {
   font-weight: 800;
   padding: 7px 10px;
   white-space: nowrap;
+}
+
+.delete-log-button {
+  color: #64748b;
+  height: 40px;
+  min-height: 40px;
+  width: 40px;
+}
+
+.delete-log-button:hover {
+  border-color: #fecaca;
+  color: var(--urgent);
+}
+
+.delete-log-button .material-symbols-outlined {
+  font-size: 22px;
 }
 
 .time-period {
@@ -631,6 +654,17 @@ nav {
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.sync-hint {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  margin: -4px 0 0;
+}
+
+.sync-hint.is-synced {
+  color: var(--accent-strong);
 }
 
 .export-controls {
@@ -1214,7 +1248,7 @@ legend {
     grid-template-columns: auto 1fr;
   }
 
-  .time-pill {
+  .timeline-actions {
     grid-column: 2;
     justify-self: start;
   }
