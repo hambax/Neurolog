@@ -1,0 +1,19 @@
+{
+  "name": "Neurolog",
+  "short_name": "Neurolog",
+  "description": "Private family caregiver logging for medication, symptoms, feelings, and behaviour.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#f8fafc",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

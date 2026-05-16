@@ -39,7 +39,7 @@ care
 
 ## Google Sheets Database
 
-GitHub Pages hosts only the static interface. Logs are read and written through a Google Apps Script web app connected to a private Google Sheet.
+GitHub Pages hosts the static interface. Logs are read and written through a Google Apps Script web app connected to a private Google Sheet.
 
 The Apps Script backend is in:
 
@@ -62,7 +62,9 @@ It creates/uses a `DailyLog` tab with doctor-readable columns.
 9. Copy the Web App URL.
 10. Open the deployed app, go to `Settings`, paste the Web App URL into `Google Sheets sync`, and save settings.
 
-Until a Web App URL is saved in Settings, the app continues to use local browser storage.
+The public app includes the current Apps Script Web App URL so family devices can load from and write to Google Sheets by default. This is convenient for the family workflow, but it is not strong security because the endpoint can be viewed in the public site source.
+
+For phone setup, open the app, go to `Settings`, paste the Apps Script Web App URL, then use `Copy setup link`. Open that setup link once on each caregiver phone/browser before saving the webpage to the Home Screen. After that, the app loads logs from Google Sheets when sync is configured.
 
 Suggested sheet tabs:
 

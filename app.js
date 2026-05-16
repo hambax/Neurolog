@@ -6,7 +6,8 @@ const MEDICATION_OPTIONS_KEY = "neurolog_medication_options_v2";
 const CAREGIVER_OPTIONS_KEY = "neurolog_caregiver_options_v1";
 const SHEET_API_URL_KEY = "neurolog_sheet_api_url_v1";
 const DEMO_PASSWORD = "care";
-let sheetApiUrl = "";
+const DEFAULT_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxgT7Jy4EkygawrzfEm6k1LBKLcUdW1ro_U2_gI5ELUfHvjHymkA90KfbYfE2An3cR1/exec";
+let sheetApiUrl = DEFAULT_SHEET_API_URL;
 
 const state = {
   entries: [],
@@ -86,7 +87,7 @@ function loadState() {
   state.patient = savedPatient ? JSON.parse(savedPatient) : state.patient;
   presets.medications = normalizeMedicationOptions(savedMedications ? JSON.parse(savedMedications) : presets.medications);
   presets.caregivers = savedCaregivers ? JSON.parse(savedCaregivers) : presets.caregivers;
-  sheetApiUrl = setupSheetApiUrl || savedSheetApiUrl || "";
+  sheetApiUrl = setupSheetApiUrl || savedSheetApiUrl || DEFAULT_SHEET_API_URL;
 
   if (!savedEntries) saveEntries();
   if (!savedPatient) savePatient();
@@ -159,26 +160,31 @@ async function loadEntriesFromSheet() {
   render();
 }
 
-function appendEntryToSheet(entry) {
-  if (!syncEnabled()) return;
-  fetch(sheetApiUrl, {
+async function appendEntryToSheet(entry) {
+  if (!syncEnabled()) return false;
+  await fetch(sheetApiUrl, {
     method: "POST",
     mode: "no-cors",
     body: JSON.stringify({ action: "appendLog", entry })
-  }).catch(() => {
-    // Keep local data intact; the caregiver can sync again later.
   });
+  return true;
 }
 
-function deleteEntryFromSheet(id) {
-  if (!syncEnabled() || !id) return;
-  fetch(sheetApiUrl, {
+async function deleteEntryFromSheet(id) {
+  if (!syncEnabled() || !id) return false;
+  await fetch(sheetApiUrl, {
     method: "POST",
     mode: "no-cors",
     body: JSON.stringify({ action: "deleteLog", id })
-  }).catch(() => {
-    // Local deletion stays in place; a later sync can reconcile the sheet.
   });
+  return true;
+}
+
+function refreshEntriesFromSheetSoon() {
+  if (!syncEnabled()) return;
+  window.setTimeout(() => {
+    loadEntriesFromSheet().catch(() => {});
+  }, 1400);
 }
 
 function savePatient() {
@@ -785,7 +791,7 @@ function fieldsForType(type) {
   return "";
 }
 
-function handleEntrySubmit(event) {
+async function handleEntrySubmit(event) {
   event.preventDefault();
   const submitter = event.submitter;
   if (submitter?.value === "cancel") {
@@ -838,10 +844,17 @@ function handleEntrySubmit(event) {
   state.entries.push(savedEntry);
 
   saveEntries();
-  appendEntryToSheet(savedEntry);
   entryDialog.close();
   render();
   setRoute("today");
+
+  if (syncEnabled()) {
+    appendEntryToSheet(savedEntry)
+      .then((didSync) => {
+        if (didSync) refreshEntriesFromSheetSoon();
+      })
+      .catch(() => {});
+  }
 }
 
 function deleteEntry(id) {
@@ -852,8 +865,15 @@ function deleteEntry(id) {
 
   state.entries = state.entries.filter((item) => item.id !== id);
   saveEntries();
-  deleteEntryFromSheet(id);
   render();
+
+  if (syncEnabled()) {
+    deleteEntryFromSheet(id)
+      .then((didSync) => {
+        if (didSync) refreshEntriesFromSheetSoon();
+      })
+      .catch(() => {});
+  }
 }
 
 function escapeHtml(value) {
