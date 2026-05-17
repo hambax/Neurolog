@@ -838,7 +838,7 @@ function fieldsForType(type) {
       <div class="field-row">
         <label>
           Dose
-          <input name="dose" type="text" placeholder="${escapeHtml(medicationDefaultDose(defaultMedication) || "Dose given")}" />
+          <input name="dose" type="text" placeholder="Dose given" value="${escapeHtml(medicationDefaultDose(defaultMedication))}" />
         </label>
         ${quickSelectField("givenBy", "Given by", presets.caregivers, "Alison")}
       </div>
@@ -893,6 +893,7 @@ async function handleEntrySubmit(event) {
 
     if (newMedicationName) {
       entry.medicationName = newMedicationName;
+      if (!entry.dose) entry.dose = newMedicationDose || "";
       if (!presets.medications.some((option) => option.name.toLowerCase() === newMedicationName.toLowerCase())) {
         presets.medications.push({ name: newMedicationName, defaultDose: newMedicationDose || "" });
         saveMedicationOptions();
@@ -1140,8 +1141,7 @@ dynamicFields.addEventListener("change", (event) => {
   const select = event.target.closest("[data-quick-select]");
   if (select) toggleInlineAddFields(select.name, select.value === "__add__");
   if (select?.name === "medicationName" && select.value !== "__add__" && entryForm.elements.dose) {
-    entryForm.elements.dose.placeholder = medicationDefaultDose(select.value) || "Dose given";
-    entryForm.elements.dose.value = "";
+    entryForm.elements.dose.value = medicationDefaultDose(select.value);
   }
 });
 dynamicFields.addEventListener("input", (event) => {
