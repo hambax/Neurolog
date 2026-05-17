@@ -443,14 +443,6 @@ function renderTimeline(container, entries, options = {}) {
 
 function renderToday() {
   const todayEntries = state.entries.filter((entry) => entry.date === todayString());
-  const meds = todayEntries.filter((entry) => entry.type === "Medication");
-  const behaviours = todayEntries.filter((entry) => entry.type === "Behaviour");
-  const lastFeeling = sortEntries(state.entries.filter((entry) => entry.type === "Feeling"))[0];
-
-  document.querySelector("#lastFeeling").textContent = lastFeeling ? entryTitle(lastFeeling) : "No feeling logged yet";
-  document.querySelector("#medsToday").textContent = `${meds.length} logged`;
-  document.querySelector("#behavioursToday").textContent = `${behaviours.length} today`;
-
   renderTimeline(document.querySelector("#todayTimeline"), todayEntries);
 }
 
