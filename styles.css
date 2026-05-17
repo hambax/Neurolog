@@ -565,8 +565,22 @@ nav {
 .filters {
   display: grid;
   gap: 12px;
-  grid-template-columns: 1fr 180px;
+  grid-template-columns: minmax(260px, 1fr) 170px 150px 150px auto;
   margin-bottom: 18px;
+}
+
+.history-date-filter {
+  gap: 6px;
+}
+
+.history-date-filter input {
+  font-size: 0.95rem;
+}
+
+.compact-filter-button {
+  align-self: end;
+  min-height: var(--control-height);
+  white-space: nowrap;
 }
 
 .export-panel {
@@ -1276,6 +1290,15 @@ legend {
 }
 
 @media (max-width: 1180px) {
+  .filters {
+    grid-template-columns: minmax(260px, 1fr) 170px;
+  }
+
+  .history-date-filter,
+  .compact-filter-button {
+    grid-column: auto;
+  }
+
   .export-controls {
     grid-template-columns: minmax(220px, 280px) repeat(2, minmax(150px, 1fr));
   }

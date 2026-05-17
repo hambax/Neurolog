@@ -490,10 +490,14 @@ function renderToday() {
 function renderHistory() {
   const query = document.querySelector("#historySearch").value.trim().toLowerCase();
   const type = document.querySelector("#typeFilter").value;
+  const from = document.querySelector("#historyFrom").value;
+  const to = document.querySelector("#historyTo").value;
   const filtered = state.entries.filter((entry) => {
     const matchesType = type === "All" || entry.type === type;
+    const matchesFrom = !from || entry.date >= from;
+    const matchesTo = !to || entry.date <= to;
     const haystack = JSON.stringify(entry).toLowerCase();
-    return matchesType && (!query || haystack.includes(query));
+    return matchesType && matchesFrom && matchesTo && (!query || haystack.includes(query));
   });
 
   renderTimeline(document.querySelector("#historyTimeline"), filtered, { canDelete: true });
@@ -1343,6 +1347,13 @@ timePicker.addEventListener("click", (event) => {
 });
 document.querySelector("#historySearch").addEventListener("input", renderHistory);
 document.querySelector("#typeFilter").addEventListener("change", renderHistory);
+document.querySelector("#historyFrom").addEventListener("change", renderHistory);
+document.querySelector("#historyTo").addEventListener("change", renderHistory);
+document.querySelector("#clearHistoryDates").addEventListener("click", () => {
+  document.querySelector("#historyFrom").value = "";
+  document.querySelector("#historyTo").value = "";
+  renderHistory();
+});
 document.querySelector("#historyTimeline").addEventListener("click", (event) => {
   const deleteButton = event.target.closest("[data-delete-log]");
   if (!deleteButton) return;
