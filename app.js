@@ -608,6 +608,153 @@ function pdfDocumentHtml() {
   `;
 }
 
+function pdfSafeText(value) {
+  return String(value ?? "")
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function pdfEscape(value) {
+  return pdfSafeText(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
+}
+
+function pdfText(x, y, size, text, font = "F1") {
+  return `BT /${font} ${size} Tf ${x} ${y} Td (${pdfEscape(text)}) Tj ET`;
+}
+
+function wrapPdfText(value, maxChars) {
+  const words = pdfSafeText(value).split(" ").filter(Boolean);
+  const lines = [];
+  let line = "";
+
+  words.forEach((word) => {
+    const next = line ? `${line} ${word}` : word;
+    if (next.length <= maxChars) {
+      line = next;
+      return;
+    }
+    if (line) lines.push(line);
+    line = word.length > maxChars ? `${word.slice(0, maxChars - 1)}...` : word;
+  });
+
+  if (line) lines.push(line);
+  return lines.length ? lines : [""];
+}
+
+function buildPdfPages() {
+  const rows = printableRows();
+  const pageWidth = 842;
+  const pageHeight = 595;
+  const margin = 36;
+  const columns = [
+    { label: "Date", key: "date", x: 36, width: 70, chars: 12 },
+    { label: "Time", key: "time", x: 106, width: 52, chars: 9 },
+    { label: "Type", key: "category", x: 158, width: 70, chars: 11 },
+    { label: "Details", key: "details", x: 228, width: 284, chars: 45 },
+    { label: "Severity", key: "severity", x: 512, width: 62, chars: 10 },
+    { label: "Notes", key: "notes", x: 574, width: 232, chars: 36 }
+  ];
+  const pages = [];
+  let commands = [];
+  let y = 0;
+
+  function startPage() {
+    commands = [
+      "0.93 0.97 1 rg 0 0 842 595 re f",
+      "1 1 1 rg 24 24 794 547 re f",
+      "0.82 0.90 0.96 RG 24 24 794 547 re S",
+      pdfText(margin, 548, 10, "Neurolog care log", "F2"),
+      pdfText(margin, 526, 20, "Doctor review export", "F2"),
+      pdfText(610, 548, 10, exportRangeLabel(), "F2"),
+      pdfText(610, 530, 10, `${rows.length} ${rows.length === 1 ? "log" : "logs"}`),
+      "0.86 0.95 1 rg 36 494 770 24 re f",
+      "0.74 0.84 0.92 RG 36 494 770 24 re S"
+    ];
+    columns.forEach((column) => {
+      commands.push(pdfText(column.x + 5, 502, 9, column.label, "F2"));
+    });
+    y = 480;
+  }
+
+  function finishPage() {
+    commands.push(pdfText(margin, 34, 8, `Generated ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date())}`));
+    commands.push(pdfText(282, 34, 8, GOOGLE_SHEET_URL));
+    pages.push(commands.join("\n"));
+  }
+
+  startPage();
+
+  const sourceRows = rows.length ? rows : [{ date: "", time: "", category: "", details: "No logs in this export range.", severity: "", notes: "" }];
+  sourceRows.forEach((row) => {
+    const wrapped = columns.map((column) => wrapPdfText(row[column.key], column.chars));
+    const lineCount = Math.max(...wrapped.map((lines) => lines.length));
+    const rowHeight = Math.max(24, lineCount * 11 + 12);
+
+    if (y - rowHeight < 54) {
+      finishPage();
+      startPage();
+    }
+
+    commands.push("1 1 1 rg");
+    commands.push(`36 ${y - rowHeight + 8} 770 ${rowHeight} re f`);
+    commands.push("0.88 0.93 0.97 RG");
+    commands.push(`36 ${y - rowHeight + 8} 770 ${rowHeight} re S`);
+
+    wrapped.forEach((lines, columnIndex) => {
+      const column = columns[columnIndex];
+      lines.slice(0, 5).forEach((line, lineIndex) => {
+        commands.push(pdfText(column.x + 5, y - 5 - lineIndex * 11, 8.5, line));
+      });
+    });
+    y -= rowHeight;
+  });
+
+  finishPage();
+  return { pages, pageWidth, pageHeight };
+}
+
+function exportPdfBlob() {
+  const { pages, pageWidth, pageHeight } = buildPdfPages();
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    `<< /Type /Pages /Kids ${pages.map((_, index) => `${5 + index * 2} 0 R`).join(" ")} /Count ${pages.length} >>`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"
+  ];
+
+  pages.forEach((content, index) => {
+    const pageObjectNumber = 5 + index * 2;
+    const contentObjectNumber = pageObjectNumber + 1;
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`);
+    objects.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  });
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return new Blob([pdf], { type: "application/pdf" });
+}
+
+function pdfFilename() {
+  return exportFilename().replace(/\.csv$/, ".pdf");
+}
+
 function previewPdfExport() {
   const html = pdfDocumentHtml();
   pdfPreviewContent.innerHTML = html;
@@ -618,6 +765,18 @@ function previewPdfExport() {
 function printPdfExport() {
   pdfPrintArea.innerHTML = pdfDocumentHtml();
   window.print();
+}
+
+function downloadPdfExport() {
+  const blob = exportPdfBlob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = pdfFilename();
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function csvEscape(value) {
@@ -658,16 +817,45 @@ function downloadExport() {
 
 function emailExport() {
   const rows = exportRows();
-  const subject = encodeURIComponent(`Neurolog care log sheet (${rows.length} ${rows.length === 1 ? "log" : "logs"})`);
-  const body = encodeURIComponent([
+  const subject = `Neurolog care log sheet (${rows.length} ${rows.length === 1 ? "log" : "logs"})`;
+  const body = [
     "Neurolog care log for doctor review:",
     "",
     GOOGLE_SHEET_URL,
     "",
     `Date range selected in app: ${exportRangeLabel()}`,
     `Log count: ${rows.length}`,
-  ].join("\n"));
-  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  ].join("\n");
+  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+async function sharePdfExport() {
+  const rows = exportRows();
+  const subject = `Neurolog care log sheet (${rows.length} ${rows.length === 1 ? "log" : "logs"})`;
+  const text = [
+    "Neurolog care log for doctor review:",
+    GOOGLE_SHEET_URL,
+    "",
+    `Date range selected in app: ${exportRangeLabel()}`,
+    `Log count: ${rows.length}`
+  ].join("\n");
+  const file = new File([exportPdfBlob()], pdfFilename(), { type: "application/pdf" });
+
+  if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+    try {
+      await navigator.share({
+        title: subject,
+        text,
+        files: [file]
+      });
+      return;
+    } catch (error) {
+      if (error.name === "AbortError") return;
+    }
+  }
+
+  downloadPdfExport();
+  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`${text}\n\nPDF downloaded separately. Attach the downloaded PDF to this email if needed.`)}`;
 }
 
 function renderPatient() {
@@ -1159,7 +1347,7 @@ exportScope.addEventListener("change", () => {
 exportFrom.addEventListener("change", renderExportCount);
 exportTo.addEventListener("change", renderExportCount);
 document.querySelector("#downloadExportButton").addEventListener("click", downloadExport);
-document.querySelector("#emailExportButton").addEventListener("click", emailExport);
+document.querySelector("#emailExportButton").addEventListener("click", sharePdfExport);
 document.querySelector("#previewPdfButton").addEventListener("click", previewPdfExport);
 document.querySelector("#printPdfButton").addEventListener("click", printPdfExport);
 syncButton.addEventListener("click", refreshSheetNow);
