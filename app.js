@@ -791,6 +791,45 @@ function medicationDefaultDose(name) {
   return presets.medications.find((medication) => medication.name === name)?.defaultDose || "";
 }
 
+function parseDoseText(value) {
+  const match = String(value || "").trim().match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)(.*)$/);
+  if (!match) return null;
+  return {
+    amount: Number(match[1]),
+    unit: match[2],
+    suffix: match[3].trim()
+  };
+}
+
+function formatDoseAmount(amount, unit, suffix = "") {
+  const cleanAmount = Number.isInteger(amount) ? String(amount) : String(Number(amount.toFixed(2)));
+  return suffix ? `${cleanAmount}${unit} ${suffix}` : `${cleanAmount}${unit}`;
+}
+
+function selectedMedicationDoseUnit() {
+  const selectedMedication = entryForm.elements.medicationName?.value;
+  if (selectedMedication && selectedMedication !== "__add__") return medicationDefaultDose(selectedMedication);
+  return entryForm.elements.newMedicationDose?.value.trim() || "";
+}
+
+function stepMedicationDose(direction) {
+  const doseInput = entryForm.elements.dose;
+  if (!doseInput) return;
+
+  const baseDose = parseDoseText(selectedMedicationDoseUnit());
+  if (!baseDose || !Number.isFinite(baseDose.amount) || baseDose.amount <= 0) return;
+
+  const currentDose = parseDoseText(doseInput.value);
+  const currentAmount = currentDose && currentDose.unit.toLowerCase() === baseDose.unit.toLowerCase()
+    ? currentDose.amount
+    : baseDose.amount;
+  const nextAmount = Math.max(baseDose.amount, currentAmount + baseDose.amount * direction);
+
+  doseInput.value = nextAmount === baseDose.amount
+    ? formatDoseAmount(baseDose.amount, baseDose.unit, baseDose.suffix)
+    : formatDoseAmount(nextAmount, baseDose.unit);
+}
+
 function selectOptions(options, selected = "") {
   return options.map((option) => `<option value="${escapeHtml(option)}" ${option === selected ? "selected" : ""}>${escapeHtml(option)}</option>`).join("");
 }
@@ -836,9 +875,17 @@ function fieldsForType(type) {
         </label>
       </div>
       <div class="field-row">
-        <label>
+        <label class="dose-field">
           Dose
-          <input name="dose" type="text" placeholder="Dose given" value="${escapeHtml(medicationDefaultDose(defaultMedication))}" />
+          <div class="dose-stepper">
+            <button class="dose-step-button" data-dose-step="-1" type="button" aria-label="Decrease dose">
+              <span class="material-symbols-outlined">remove</span>
+            </button>
+            <input name="dose" type="text" placeholder="Dose given" value="${escapeHtml(medicationDefaultDose(defaultMedication))}" />
+            <button class="dose-step-button" data-dose-step="1" type="button" aria-label="Increase dose">
+              <span class="material-symbols-outlined">add</span>
+            </button>
+          </div>
         </label>
         ${quickSelectField("givenBy", "Given by", presets.caregivers, "Alison")}
       </div>
@@ -1145,11 +1192,20 @@ dynamicFields.addEventListener("change", (event) => {
   }
 });
 dynamicFields.addEventListener("input", (event) => {
+  if (event.target.matches('[name="newMedicationDose"]') && entryForm.elements.medicationName?.value === "__add__" && entryForm.elements.dose && !entryForm.elements.dose.value.trim()) {
+    entryForm.elements.dose.value = event.target.value.trim();
+  }
   if (!event.target.matches(".severity-slider")) return;
   const value = event.target.closest(".severity-slider-field")?.querySelector("[data-severity-value]");
   if (value) value.textContent = event.target.value;
 });
 dynamicFields.addEventListener("click", (event) => {
+  const doseButton = event.target.closest("[data-dose-step]");
+  if (doseButton) {
+    stepMedicationDose(Number(doseButton.dataset.doseStep));
+    return;
+  }
+
   const removeButton = event.target.closest("[data-remove-option]");
   if (removeButton) removeQuickOption(removeButton.dataset.removeOption);
 });

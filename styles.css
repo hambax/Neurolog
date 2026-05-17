@@ -822,6 +822,39 @@ dialog::backdrop {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.dose-stepper {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: var(--control-height) minmax(0, 1fr) var(--control-height);
+}
+
+.dose-stepper input {
+  text-align: left;
+}
+
+.dose-step-button {
+  align-items: center;
+  background: var(--surface-blue);
+  border: 1px solid #cce8f8;
+  border-radius: var(--control-radius);
+  color: var(--accent-strong);
+  display: inline-flex;
+  height: var(--control-height);
+  justify-content: center;
+  min-height: var(--control-height);
+  padding: 0;
+  width: var(--control-height);
+}
+
+.dose-step-button:hover {
+  border-color: var(--accent);
+}
+
+.dose-step-button .material-symbols-outlined {
+  font-size: 24px;
+}
+
 .select-row {
   align-items: center;
   display: grid;
