@@ -1176,6 +1176,8 @@ legend {
   align-items: baseline;
   color: #94a3b8;
   display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
   justify-content: center;
   line-height: 1;
   margin: 4px 0 16px;
@@ -1191,7 +1193,17 @@ legend {
 .severity-value span {
   font-size: 1.4rem;
   font-weight: 700;
-  margin-left: 6px;
+}
+
+.severity-value em {
+  color: var(--text);
+  flex-basis: 100%;
+  font-size: 1.05rem;
+  font-style: normal;
+  font-weight: 800;
+  margin-top: 8px;
+  text-align: center;
+  text-transform: capitalize;
 }
 
 .severity-slider {

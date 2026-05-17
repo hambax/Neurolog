@@ -417,7 +417,7 @@ function entryTitle(entry) {
   if (entry.type === "Medication") return `${entry.medicationName || "Medication"}${entry.dose ? `, ${entry.dose}` : ""}`;
   if (entry.type === "Feeling") {
     const feelings = Array.isArray(entry.feeling) ? entry.feeling.join(", ") : entry.feeling;
-    return `${feelings || "Feeling"}${entry.severity ? `, ${entry.severity.toLowerCase()}` : ""}`;
+    return `${feelings || "Feeling"}${entry.severity ? `, ${severityLabel(entry.severity)}` : ""}`;
   }
   if (entry.type === "Symptom") {
     const symptoms = Array.isArray(entry.symptom) ? entry.symptom.join(", ") : entry.symptom;
@@ -425,13 +425,22 @@ function entryTitle(entry) {
   }
   if (entry.type === "Behaviour") {
     const behaviours = Array.isArray(entry.behaviour) ? entry.behaviour.join(", ") : entry.behaviour;
-    return `${behaviours || "Behaviour"}${entry.severity ? `, ${entry.severity.toLowerCase()}` : ""}`;
+    return `${behaviours || "Behaviour"}${entry.severity ? `, ${severityLabel(entry.severity)}` : ""}`;
   }
   return "Care note";
 }
 
+function severityTerm(value) {
+  const score = Number(value);
+  if (!Number.isFinite(score)) return String(value || "").toLowerCase();
+  if (score <= 2) return "mild";
+  if (score <= 5) return "moderate";
+  if (score <= 8) return "severe";
+  return "extreme";
+}
+
 function severityLabel(value) {
-  return /^\d+$/.test(String(value)) ? `${value}/10` : String(value).toLowerCase();
+  return /^\d+$/.test(String(value)) ? `${value}/10, ${severityTerm(value)}` : String(value).toLowerCase();
 }
 
 function entryMeta(entry) {
@@ -524,7 +533,7 @@ function exportRows() {
     Feelings: entryValue(entry.feeling),
     Symptoms: entryValue(entry.symptom),
     Behaviours: entryValue(entry.behaviour),
-    Severity: entry.type === "Symptom" && entry.severity ? severityLabel(entry.severity) : entry.severity || "",
+    Severity: entry.severity ? severityLabel(entry.severity) : "",
     Notes: entry.notes || "",
     "Logged at": entry.createdAt || ""
   }));
@@ -551,7 +560,7 @@ function printableRows() {
       time: formatTime(entry.time || "00:00"),
       category: entry.type || "",
       details: detailParts.join(" · ") || entry.type || "",
-      severity: entry.type === "Symptom" && entry.severity ? severityLabel(entry.severity) : entry.severity || "",
+      severity: entry.severity ? severityLabel(entry.severity) : "",
       notes: entry.notes || ""
     };
   });
@@ -963,17 +972,19 @@ function choiceField(name, label, options, isMultiple = false) {
 }
 
 function severitySliderField() {
+  const defaultSeverity = 5;
   return `
     <fieldset class="severity-slider-field">
       <legend>Severity</legend>
       <div class="severity-value" aria-live="polite">
-        <strong data-severity-value>5</strong>
+        <strong data-severity-value>${defaultSeverity}</strong>
         <span>/10</span>
+        <em data-severity-term>${severityTerm(defaultSeverity)}</em>
       </div>
-      <input class="severity-slider" name="severity" type="range" min="0" max="10" step="1" value="5" aria-label="Symptom severity from 0 mild to 10 severe" />
+      <input class="severity-slider" name="severity" type="range" min="0" max="10" step="1" value="${defaultSeverity}" aria-label="Severity from 0 mild to 10 extreme" />
       <div class="severity-scale" aria-hidden="true">
         <span>0 Mild</span>
-        <span>10 Severe</span>
+        <span>10 Extreme</span>
       </div>
     </fieldset>
   `;
@@ -1119,7 +1130,7 @@ function fieldsForType(type) {
   }
 
   if (type === "Feeling") {
-    return `${choiceField("feeling", "Feeling", presets.feelings, true)}${choiceField("severity", "Intensity", presets.severity)}`;
+    return `${choiceField("feeling", "Feeling", presets.feelings, true)}${severitySliderField()}`;
   }
 
   if (type === "Symptom") {
@@ -1127,7 +1138,7 @@ function fieldsForType(type) {
   }
 
   if (type === "Behaviour") {
-    return `${choiceField("behaviour", "Behaviour", presets.behaviours, true)}${choiceField("severity", "Severity", presets.severity)}`;
+    return `${choiceField("behaviour", "Behaviour", presets.behaviours, true)}${severitySliderField()}`;
   }
 
   return "";
@@ -1405,8 +1416,11 @@ dynamicFields.addEventListener("input", (event) => {
     entryForm.elements.dose.value = event.target.value.trim();
   }
   if (!event.target.matches(".severity-slider")) return;
-  const value = event.target.closest(".severity-slider-field")?.querySelector("[data-severity-value]");
+  const field = event.target.closest(".severity-slider-field");
+  const value = field?.querySelector("[data-severity-value]");
+  const term = field?.querySelector("[data-severity-term]");
   if (value) value.textContent = event.target.value;
+  if (term) term.textContent = severityTerm(event.target.value);
 });
 dynamicFields.addEventListener("click", (event) => {
   const doseButton = event.target.closest("[data-dose-step]");
