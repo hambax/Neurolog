@@ -618,7 +618,7 @@ nav {
   align-items: end;
   display: grid;
   gap: 14px;
-  grid-template-columns: minmax(220px, 280px) minmax(150px, 180px) minmax(150px, 180px) minmax(360px, 1fr);
+  grid-template-columns: minmax(220px, 280px) repeat(2, minmax(170px, 220px));
 }
 
 .export-controls > label:first-child {
@@ -636,9 +636,9 @@ nav {
 .export-actions {
   display: grid;
   gap: 12px;
-  grid-column: 4;
-  grid-template-columns: minmax(170px, 1fr) minmax(150px, 1fr) minmax(190px, 1fr);
-  justify-content: flex-end;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(190px, 240px));
+  justify-content: start;
   min-width: 0;
 }
 
@@ -1291,12 +1291,15 @@ legend {
 
 @media (max-width: 1180px) {
   .filters {
-    grid-template-columns: minmax(260px, 1fr) 170px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .history-date-filter,
+  .search-box {
+    grid-column: 1 / -1;
+  }
+
   .compact-filter-button {
-    grid-column: auto;
+    grid-column: 1 / -1;
   }
 
   .export-controls {
@@ -1305,7 +1308,7 @@ legend {
 
   .export-actions {
     grid-column: 1 / -1;
-    grid-template-columns: minmax(170px, 1fr) minmax(150px, 1fr) minmax(190px, 1fr);
+    grid-template-columns: repeat(3, minmax(170px, 1fr));
     justify-content: start;
   }
 }
