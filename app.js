@@ -490,8 +490,9 @@ function renderToday() {
 function renderHistory() {
   const query = document.querySelector("#historySearch").value.trim().toLowerCase();
   const type = document.querySelector("#typeFilter").value;
-  const from = document.querySelector("#historyFrom").value;
-  const to = document.querySelector("#historyTo").value;
+  const isRange = document.querySelector("#historyDateScope").value === "range";
+  const from = isRange ? document.querySelector("#historyFrom").value : "";
+  const to = isRange ? document.querySelector("#historyTo").value : "";
   const filtered = state.entries.filter((entry) => {
     const matchesType = type === "All" || entry.type === type;
     const matchesFrom = !from || entry.date >= from;
@@ -502,6 +503,18 @@ function renderHistory() {
 
   renderTimeline(document.querySelector("#historyTimeline"), filtered, { canDelete: true });
   renderExportCount();
+}
+
+function updateHistoryDateFilters() {
+  const isRange = document.querySelector("#historyDateScope").value === "range";
+  document.querySelectorAll(".history-date-filter").forEach((field) => {
+    field.classList.toggle("is-hidden", !isRange);
+  });
+  if (!isRange) {
+    document.querySelector("#historyFrom").value = "";
+    document.querySelector("#historyTo").value = "";
+  }
+  renderHistory();
 }
 
 function exportEntries() {
@@ -1347,13 +1360,9 @@ timePicker.addEventListener("click", (event) => {
 });
 document.querySelector("#historySearch").addEventListener("input", renderHistory);
 document.querySelector("#typeFilter").addEventListener("change", renderHistory);
+document.querySelector("#historyDateScope").addEventListener("change", updateHistoryDateFilters);
 document.querySelector("#historyFrom").addEventListener("change", renderHistory);
 document.querySelector("#historyTo").addEventListener("change", renderHistory);
-document.querySelector("#clearHistoryDates").addEventListener("click", () => {
-  document.querySelector("#historyFrom").value = "";
-  document.querySelector("#historyTo").value = "";
-  renderHistory();
-});
 document.querySelector("#historyTimeline").addEventListener("click", (event) => {
   const deleteButton = event.target.closest("[data-delete-log]");
   if (!deleteButton) return;

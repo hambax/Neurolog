@@ -565,7 +565,7 @@ nav {
 .filters {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(260px, 1fr) 170px 150px 150px auto;
+  grid-template-columns: minmax(320px, 1fr) minmax(170px, 210px) minmax(170px, 210px);
   margin-bottom: 18px;
 }
 
@@ -575,12 +575,6 @@ nav {
 
 .history-date-filter input {
   font-size: 0.95rem;
-}
-
-.compact-filter-button {
-  align-self: end;
-  min-height: var(--control-height);
-  white-space: nowrap;
 }
 
 .export-panel {
@@ -1295,10 +1289,6 @@ legend {
   }
 
   .search-box {
-    grid-column: 1 / -1;
-  }
-
-  .compact-filter-button {
     grid-column: 1 / -1;
   }
 

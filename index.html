@@ -153,15 +153,18 @@
                 <option value="Behaviour">Behaviour</option>
                 <option value="Note">Notes</option>
               </select>
-              <label class="history-date-filter">
+              <select id="historyDateScope" aria-label="Filter by date range">
+                <option value="all">All history</option>
+                <option value="range">Date range</option>
+              </select>
+              <label class="history-date-filter is-hidden">
                 From
                 <input id="historyFrom" type="date" />
               </label>
-              <label class="history-date-filter">
+              <label class="history-date-filter is-hidden">
                 To
                 <input id="historyTo" type="date" />
               </label>
-              <button class="ghost-button compact-filter-button" id="clearHistoryDates" type="button">All history</button>
             </div>
             <div id="historyTimeline" class="timeline"></div>
           </section>
