@@ -242,6 +242,25 @@ textarea:focus {
   width: var(--icon-button-size);
 }
 
+.icon-button:disabled {
+  color: #94a3b8;
+  cursor: wait;
+}
+
+#syncButton .material-symbols-outlined {
+  transition: transform 0.2s ease;
+}
+
+#syncButton:disabled .material-symbols-outlined {
+  animation: sync-spin 0.9s linear infinite;
+}
+
+@keyframes sync-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .helper-text {
   color: var(--muted);
   font-size: 0.86rem;

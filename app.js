@@ -56,6 +56,7 @@ const caregiverSettingsList = document.querySelector("#caregiverSettingsList");
 const saveSettingsTopButton = document.querySelector("#saveSettingsTopButton");
 const sheetApiUrlInput = document.querySelector("#sheetApiUrl");
 const copySetupLinkButton = document.querySelector("#copySetupLinkButton");
+const syncButton = document.querySelector("#syncButton");
 const exportScope = document.querySelector("#exportScope");
 const exportFrom = document.querySelector("#exportFrom");
 const exportTo = document.querySelector("#exportTo");
@@ -162,6 +163,37 @@ async function loadEntriesFromSheet() {
   state.entries = response.entries || [];
   saveEntries();
   render();
+}
+
+async function refreshSheetNow() {
+  if (!syncEnabled()) {
+    alert("Google Sheets sync is not configured.");
+    return;
+  }
+
+  syncButton.disabled = true;
+  syncButton.title = "Refreshing from spreadsheet";
+  syncButton.setAttribute("aria-label", "Refreshing from spreadsheet");
+  syncButton.innerHTML = '<span class="material-symbols-outlined">progress_activity</span>';
+
+  try {
+    await loadEntriesFromSheet();
+    syncButton.innerHTML = '<span class="material-symbols-outlined">cloud_done</span>';
+    syncButton.title = "Spreadsheet refreshed";
+    syncButton.setAttribute("aria-label", "Spreadsheet refreshed");
+    window.setTimeout(() => {
+      syncButton.innerHTML = '<span class="material-symbols-outlined">sync</span>';
+      syncButton.title = "Refresh from spreadsheet";
+      syncButton.setAttribute("aria-label", "Refresh from spreadsheet");
+    }, 1600);
+  } catch (error) {
+    syncButton.innerHTML = '<span class="material-symbols-outlined">sync_problem</span>';
+    syncButton.title = "Refresh failed";
+    syncButton.setAttribute("aria-label", "Refresh failed");
+    alert(error.message);
+  } finally {
+    syncButton.disabled = false;
+  }
 }
 
 async function appendEntryToSheet(entry) {
@@ -1130,18 +1162,7 @@ document.querySelector("#downloadExportButton").addEventListener("click", downlo
 document.querySelector("#emailExportButton").addEventListener("click", emailExport);
 document.querySelector("#previewPdfButton").addEventListener("click", previewPdfExport);
 document.querySelector("#printPdfButton").addEventListener("click", printPdfExport);
-document.querySelector("#clearDemoButton").addEventListener("click", () => {
-  state.entries = [];
-  saveEntries();
-  render();
-});
-document.querySelector("#syncButton").addEventListener("click", () => {
-  if (!syncEnabled()) {
-    alert("Add the Apps Script Web App URL in Settings to turn on Google Sheets sync.");
-    return;
-  }
-  loadEntriesFromSheet().catch((error) => alert(error.message));
-});
+syncButton.addEventListener("click", refreshSheetNow);
 document.querySelector("#addMedicationSetting").addEventListener("click", () => {
   presets.medications.push({ name: "", defaultDose: "" });
   dirtySettings.medication.add(presets.medications.length - 1);
