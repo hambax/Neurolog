@@ -170,6 +170,19 @@
           </section>
 
           <section class="route" data-route-panel="patient">
+            <section class="brain-visual-panel">
+              <!-- Decorative, non-diagnostic visual. The still poster loads first; turntable frames lazy-load after user activation. -->
+              <div class="brain-visual" data-brain-visual data-frame-count="42" data-frame-template="./assets/brain-turntable-blue/frame-{index}.jpg" role="button" tabindex="0" aria-label="Play rotating brain visual">
+                <div class="brain-visual-placeholder"></div>
+                <img class="brain-visual-poster" data-brain-visual-poster src="./assets/brain-patient-poster.jpg" alt="" decoding="async" />
+                <img class="brain-visual-image" data-brain-visual-image alt="" decoding="async" />
+                <span class="brain-visual-play material-symbols-outlined" aria-hidden="true">play_arrow</span>
+                <noscript>
+                  <img class="brain-visual-image is-noscript" src="./assets/brain-patient-poster.jpg" alt="" />
+                </noscript>
+              </div>
+            </section>
+
             <form id="patientForm" class="patient-form">
               <label>
                 Patient name
