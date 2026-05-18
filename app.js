@@ -73,7 +73,6 @@ const timeDisplay = document.querySelector("#timeDisplay");
 const pdfPreviewDialog = document.querySelector("#pdfPreviewDialog");
 const pdfPreviewContent = document.querySelector("#pdfPreviewContent");
 const pdfPrintArea = document.querySelector("#pdfPrintArea");
-const brainVisualRoot = document.querySelector("[data-brain-visual]");
 
 let pickerMonth = new Date();
 const dirtySettings = {
@@ -81,139 +80,6 @@ const dirtySettings = {
   caregiver: new Set(),
   sheet: false
 };
-
-class BrainTurntableVisual {
-  constructor(root) {
-    this.root = root;
-    this.poster = root.querySelector("[data-brain-visual-poster]");
-    this.image = root.querySelector("[data-brain-visual-image]");
-    this.frameCount = Number(root.dataset.frameCount) || 1;
-    this.template = root.dataset.frameTemplate || "";
-    this.currentFrame = 0;
-    this.loaded = new Set();
-    this.timer = null;
-    this.isVisible = false;
-    this.hasStarted = false;
-    this.isDragging = false;
-    this.dragStartX = 0;
-    this.dragStartFrame = 0;
-    this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  }
-
-  init() {
-    if (!this.image || !this.template) return;
-
-    this.root.addEventListener("pointerdown", (event) => this.startDrag(event));
-    this.root.addEventListener("click", () => this.startFromPoster());
-    this.root.addEventListener("keydown", (event) => this.handleKeydown(event));
-    window.addEventListener("pointermove", (event) => this.drag(event));
-    window.addEventListener("pointerup", () => this.endDrag());
-    window.addEventListener("pointercancel", () => this.endDrag());
-
-    if (this.poster?.complete) this.root.classList.add("is-poster-ready");
-    else this.poster?.addEventListener("load", () => this.root.classList.add("is-poster-ready"), { once: true });
-
-    // Performance/accessibility: the poster is the default. Turntable frames lazy-load only
-    // after user activation, pause off-screen, and respect reduced-motion preferences.
-    if (!("IntersectionObserver" in window)) {
-      return;
-    }
-
-    this.observer = new IntersectionObserver(([entry]) => {
-      this.isVisible = entry.isIntersecting;
-      if (this.isVisible && this.hasStarted) this.activate();
-      else this.stop();
-    }, { threshold: 0.16 });
-    this.observer.observe(this.root);
-  }
-
-  handleKeydown(event) {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    this.startFromPoster();
-  }
-
-  startFromPoster() {
-    if (!this.hasStarted) {
-      this.hasStarted = true;
-      this.root.classList.add("is-started");
-      this.activate();
-      return;
-    }
-
-    if (this.isVisible && !this.reducedMotion) this.start();
-  }
-
-  frameUrl(index) {
-    return this.template.replace("{index}", String(index + 1).padStart(3, "0"));
-  }
-
-  activate() {
-    this.showFrame(this.currentFrame);
-    this.preloadFrames();
-    if (!this.reducedMotion && !this.isDragging) this.start();
-  }
-
-  preloadFrames() {
-    window.setTimeout(() => {
-      for (let index = 0; index < this.frameCount; index += 1) {
-        if (this.loaded.has(index)) continue;
-        const image = new Image();
-        image.src = this.frameUrl(index);
-        this.loaded.add(index);
-      }
-    }, 300);
-  }
-
-  showFrame(index) {
-    const frame = (index + this.frameCount) % this.frameCount;
-    this.currentFrame = frame;
-    const src = this.frameUrl(frame);
-    if (this.image.getAttribute("src") === src) return;
-
-    if (!this.root.classList.contains("is-rendered")) {
-      this.image.addEventListener("load", () => this.root.classList.add("is-rendered"), { once: true });
-    }
-    this.image.src = src;
-    this.loaded.add(frame);
-  }
-
-  start() {
-    if (this.timer) return;
-    this.timer = window.setInterval(() => {
-      if (this.isVisible && !this.isDragging) this.showFrame(this.currentFrame + 1);
-    }, 130);
-  }
-
-  stop() {
-    if (!this.timer) return;
-    window.clearInterval(this.timer);
-    this.timer = null;
-  }
-
-  startDrag(event) {
-    if (event.button && event.button !== 0) return;
-    if (!this.hasStarted) return;
-    this.isDragging = true;
-    this.dragStartX = event.clientX;
-    this.dragStartFrame = this.currentFrame;
-    this.root.classList.add("is-dragging");
-    this.stop();
-  }
-
-  drag(event) {
-    if (!this.isDragging) return;
-    const frameDelta = Math.round((event.clientX - this.dragStartX) / 14);
-    this.showFrame(this.dragStartFrame - frameDelta);
-  }
-
-  endDrag() {
-    if (!this.isDragging) return;
-    this.isDragging = false;
-    this.root.classList.remove("is-dragging");
-    if (this.isVisible && !this.reducedMotion) this.start();
-  }
-}
 
 function loadState() {
   const savedEntries = localStorage.getItem(STORAGE_KEY);
@@ -1669,20 +1535,8 @@ function saveSettingsFromForm() {
   saveCaregiverOptions();
 }
 
-function initBrainVisualWhenIdle() {
-  if (!brainVisualRoot) return;
-  const start = () => new BrainTurntableVisual(brainVisualRoot).init();
-
-  if ("requestIdleCallback" in window) {
-    window.requestIdleCallback(start, { timeout: 1800 });
-  } else {
-    window.setTimeout(start, 600);
-  }
-}
-
 loadState();
 setNavCollapsed(localStorage.getItem(NAV_KEY) === "true");
 setRoute("today");
 render();
-initBrainVisualWhenIdle();
 loadEntriesFromSheet().catch(() => {});
