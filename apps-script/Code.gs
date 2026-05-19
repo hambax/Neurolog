@@ -15,7 +15,8 @@ const LOG_HEADERS = [
   "behaviour",
   "severity",
   "notes",
-  "rawJson"
+  "rawJson",
+  "mealType"
 ];
 
 function doGet(event) {
@@ -83,7 +84,8 @@ function listLogs() {
       symptom: splitMultiValue(row[9]),
       behaviour: splitMultiValue(row[10]),
       severity: row[11],
-      notes: row[12]
+      notes: row[12],
+      mealType: row[14] || ""
     };
   });
 }
@@ -103,7 +105,8 @@ function appendLog(entry) {
     symptom: entry.symptom || "",
     behaviour: entry.behaviour || "",
     severity: entry.severity || "",
-    notes: entry.notes || ""
+    notes: entry.notes || "",
+    mealType: entry.mealType || ""
   };
 
   sheet.appendRow([
@@ -120,7 +123,8 @@ function appendLog(entry) {
     joinMultiValue(normalized.behaviour),
     normalized.severity,
     normalized.notes,
-    JSON.stringify(normalized)
+    JSON.stringify(normalized),
+    normalized.mealType
   ]);
 }
 
@@ -144,12 +148,23 @@ function logSheet() {
   let sheet = spreadsheet.getSheetByName(LOG_SHEET_NAME);
   if (!sheet) sheet = spreadsheet.insertSheet(LOG_SHEET_NAME);
 
-  const firstRow = sheet.getRange(1, 1, 1, LOG_HEADERS.length).getValues()[0];
+  const firstRowWidth = Math.max(sheet.getLastColumn(), LOG_HEADERS.length);
+  const firstRow = sheet.getRange(1, 1, 1, firstRowWidth).getValues()[0];
   const hasHeaders = firstRow.join("") !== "";
   if (!hasHeaders) {
     sheet.getRange(1, 1, 1, LOG_HEADERS.length).setValues([LOG_HEADERS]);
     sheet.setFrozenRows(1);
+    return sheet;
   }
+
+  // Append new columns without shifting existing log data.
+  const currentHeaders = firstRow.map((value) => String(value || ""));
+  LOG_HEADERS.forEach((header) => {
+    if (currentHeaders.includes(header)) return;
+    const nextColumn = sheet.getLastColumn() + 1;
+    sheet.getRange(1, nextColumn).setValue(header);
+    currentHeaders.push(header);
+  });
 
   return sheet;
 }

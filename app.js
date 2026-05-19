@@ -25,13 +25,18 @@ const typeConfig = {
   Feeling: { icon: "sentiment_satisfied", color: "Feeling", title: "Log feeling" },
   Symptom: { icon: "sick", color: "Symptom", title: "Log symptom" },
   Behaviour: { icon: "psychology", color: "Behaviour", title: "Log behaviour" },
+  Food: { icon: "restaurant", color: "Food", title: "Log food" },
   Note: { icon: "edit_note", color: "Note", title: "Add care note" }
 };
+
+const defaultNotesPlaceholder = "What happened? What helped?";
+const foodNotesPlaceholder = "Here you can list food and drinks consumed and note any changes in taste or preferences";
 
 const presets = {
   feelings: ["Good", "Tired", "Anxious", "Low", "Irritable", "Confused", "In pain", "Nauseous"],
   symptoms: ["Headache", "Dizziness", "Nausea", "Fatigue", "Weakness", "Vision change", "Speech difficulty", "Memory issue", "Seizure", "Sleep issue", "Appetite change"],
   behaviours: ["Confusion", "Agitation", "Repetition", "Forgetfulness", "Mood swing", "Withdrawal", "Restlessness", "Poor concentration", "Speech change", "Balance issue", "Unusual behaviour"],
+  mealTypes: ["Breakfast", "Morning tea", "Lunch", "Afternoon tea", "Dinner", "Snack"],
   severity: ["Mild", "Moderate", "Severe"],
   medications: [
     { name: "Dexamethasone", defaultDose: "4mg per tablet" },
@@ -428,6 +433,7 @@ function entryTitle(entry) {
     const behaviours = Array.isArray(entry.behaviour) ? entry.behaviour.join(", ") : entry.behaviour;
     return `${behaviours || "Behaviour"}${entry.severity ? `, ${severityLabel(entry.severity)}` : ""}`;
   }
+  if (entry.type === "Food") return entry.mealType || "Food";
   return "Care note";
 }
 
@@ -545,6 +551,7 @@ function exportRows() {
     Date: entry.date || "",
     Time: formatTime(entry.time || "00:00"),
     Category: entry.type || "",
+    Meal: entry.mealType || "",
     Medication: entry.medicationName || "",
     Dose: entry.dose || "",
     "Given by": entry.givenBy || "",
@@ -567,6 +574,7 @@ function printableRows() {
   return exportEntries().map((entry) => {
     const detailParts = [];
     if (entry.medicationName) detailParts.push(entry.medicationName);
+    if (entry.mealType) detailParts.push(`Meal: ${entry.mealType}`);
     if (entry.dose) detailParts.push(entry.dose);
     if (entry.givenBy) detailParts.push(`Given by ${entry.givenBy}`);
     if (entryValue(entry.feeling)) detailParts.push(`Feeling: ${entryValue(entry.feeling)}`);
@@ -814,7 +822,7 @@ function csvEscape(value) {
 
 function exportCsv() {
   const rows = exportRows();
-  const headers = ["Date", "Time", "Category", "Medication", "Dose", "Given by", "Feelings", "Symptoms", "Behaviours", "Severity", "Notes", "Logged at"];
+  const headers = ["Date", "Time", "Category", "Meal", "Medication", "Dose", "Given by", "Feelings", "Symptoms", "Behaviours", "Severity", "Notes", "Logged at"];
   const csvRows = [headers.join(",")];
   rows.forEach((row) => {
     csvRows.push(headers.map((header) => csvEscape(row[header])).join(","));
@@ -1105,6 +1113,7 @@ function openEntryDialog(type) {
   document.querySelector("#entryTitle").textContent = typeConfig[type].title;
   document.querySelector("#entryEyebrow").textContent = "Quick log";
   dynamicFields.innerHTML = fieldsForType(type);
+  entryForm.elements.notes.placeholder = type === "Food" ? foodNotesPlaceholder : defaultNotesPlaceholder;
   entryDialog.showModal();
 }
 
@@ -1157,6 +1166,18 @@ function fieldsForType(type) {
 
   if (type === "Behaviour") {
     return `${choiceField("behaviour", "Behaviour", presets.behaviours, true)}${severitySliderField()}`;
+  }
+
+  if (type === "Food") {
+    return `
+      <label>
+        Meal
+        <select name="mealType">
+          <option value="">Not sure yet</option>
+          ${selectOptions(presets.mealTypes)}
+        </select>
+      </label>
+    `;
   }
 
   return "";
