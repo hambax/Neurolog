@@ -1,5 +1,6 @@
 const SPREADSHEET_ID = "PASTE_YOUR_PRIVATE_GOOGLE_SHEET_ID_HERE";
 const LOG_SHEET_NAME = "DailyLog";
+const MEDICATION_PLAN_SHEET_NAME = "MedicationPlan";
 
 const LOG_HEADERS = [
   "id",
@@ -19,6 +20,18 @@ const LOG_HEADERS = [
   "mealType"
 ];
 
+const MEDICATION_PLAN_HEADERS = [
+  "id",
+  "medicationName",
+  "dose",
+  "time",
+  "sortOrder",
+  "foodInstruction",
+  "notes",
+  "isActive",
+  "updatedAt"
+];
+
 function doGet(event) {
   const action = event.parameter.action;
 
@@ -26,6 +39,20 @@ function doGet(event) {
     return jsonResponse(event, {
       ok: true,
       entries: listLogs()
+    });
+  }
+
+  if (action === "listMedicationPlan") {
+    return jsonResponse(event, {
+      ok: true,
+      plan: listMedicationPlan()
+    });
+  }
+
+  if (action === "deleteLog") {
+    return jsonResponse(event, {
+      ok: true,
+      deleted: deleteLog(event.parameter.id)
     });
   }
 
@@ -50,10 +77,56 @@ function doPost(event) {
     });
   }
 
+  if (payload.action === "saveMedicationPlan") {
+    saveMedicationPlan(payload.plan || []);
+    return jsonResponse({}, { ok: true });
+  }
+
   return jsonResponse({}, {
     ok: false,
     error: "Unknown action"
   });
+}
+
+function listMedicationPlan() {
+  const sheet = medicationPlanSheet();
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  return values.slice(1).filter((row) => row[0] || row[1]).map((row, index) => ({
+    id: row[0] || Utilities.getUuid(),
+    medicationName: row[1] || "",
+    dose: row[2] || "",
+    time: row[3] || "",
+    sortOrder: Number(row[4]) || index + 1,
+    foodInstruction: row[5] || "No food instruction",
+    notes: row[6] || "",
+    isActive: row[7] === false || row[7] === "false" ? false : true
+  }));
+}
+
+function saveMedicationPlan(plan) {
+  const sheet = medicationPlanSheet();
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, MEDICATION_PLAN_HEADERS.length).setValues([MEDICATION_PLAN_HEADERS]);
+  sheet.setFrozenRows(1);
+
+  const updatedAt = new Date().toISOString();
+  const rows = plan.map((item, index) => [
+    item.id || Utilities.getUuid(),
+    item.medicationName || "",
+    item.dose || "",
+    item.time || "",
+    Number(item.sortOrder) || index + 1,
+    item.foodInstruction || "No food instruction",
+    item.notes || "",
+    item.isActive === false || item.isActive === "false" ? false : true,
+    updatedAt
+  ]);
+
+  if (rows.length) {
+    sheet.getRange(2, 1, rows.length, MEDICATION_PLAN_HEADERS.length).setValues(rows);
+  }
 }
 
 function listLogs() {
@@ -129,18 +202,42 @@ function appendLog(entry) {
 }
 
 function deleteLog(id) {
-  if (!id) return false;
+  const targetId = normalizeLogId(id);
+  if (!targetId) return false;
 
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    return deleteSingleLogRowById(targetId);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function deleteSingleLogRowById(targetId) {
   const sheet = logSheet();
   const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return false;
+
+  const headers = values[0].map((value) => String(value || ""));
+  const idColumnIndex = headers.indexOf("id");
+  if (idColumnIndex === -1) return false;
+
   for (let index = values.length - 1; index >= 1; index -= 1) {
-    if (String(values[index][0]) === String(id)) {
+    if (String(values[index][idColumnIndex]) === targetId) {
       sheet.deleteRow(index + 1);
       return true;
     }
   }
 
   return false;
+}
+
+function normalizeLogId(id) {
+  const value = String(id || "").trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : "";
 }
 
 function logSheet() {
@@ -165,6 +262,22 @@ function logSheet() {
     sheet.getRange(1, nextColumn).setValue(header);
     currentHeaders.push(header);
   });
+
+  return sheet;
+}
+
+function medicationPlanSheet() {
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = spreadsheet.getSheetByName(MEDICATION_PLAN_SHEET_NAME);
+  if (!sheet) sheet = spreadsheet.insertSheet(MEDICATION_PLAN_SHEET_NAME);
+
+  const firstRowWidth = Math.max(sheet.getLastColumn(), MEDICATION_PLAN_HEADERS.length);
+  const firstRow = sheet.getRange(1, 1, 1, firstRowWidth).getValues()[0];
+  const hasHeaders = firstRow.join("") !== "";
+  if (!hasHeaders) {
+    sheet.getRange(1, 1, 1, MEDICATION_PLAN_HEADERS.length).setValues([MEDICATION_PLAN_HEADERS]);
+    sheet.setFrozenRows(1);
+  }
 
   return sheet;
 }

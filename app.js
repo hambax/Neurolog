@@ -3,6 +3,7 @@ const PATIENT_KEY = "neurolog_patient_v1";
 const NAV_KEY = "neurolog_nav_collapsed_v1";
 const MEDICATION_OPTIONS_KEY = "neurolog_medication_options_v3";
 const CAREGIVER_OPTIONS_KEY = "neurolog_caregiver_options_v2";
+const MEDS_PLAN_KEY = "neurolog_meds_plan_v1";
 const SHEET_API_URL_KEY = "neurolog_sheet_api_url_v1";
 const DEFAULT_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxgT7Jy4EkygawrzfEm6k1LBKLcUdW1ro_U2_gI5ELUfHvjHymkA90KfbYfE2An3cR1/exec";
 const GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1hGzv8MHI8NURpMbNap-SIUH-1La8ggM9hgkVU8POv3c/edit?usp=sharing";
@@ -17,7 +18,17 @@ const state = {
     watchList: "Headache, nausea, dizziness, fatigue, confusion, speech changes, seizure activity, balance changes.",
     emergency: "Add emergency contacts, oncology/neurosurgery instructions, and red flag actions here."
   },
+  medsPlan: [],
+  medsPlanView: "time",
   route: "today"
+};
+
+const routeTitles = {
+  today: "Today",
+  "meds-plan": "Meds Plan",
+  history: "History",
+  patient: "Patient",
+  settings: "Settings"
 };
 
 const typeConfig = {
@@ -31,6 +42,7 @@ const typeConfig = {
 
 const defaultNotesPlaceholder = "What happened? What helped?";
 const foodNotesPlaceholder = "Here you can list food and drinks consumed and note any changes in taste or preferences";
+const foodInstructions = ["No food instruction", "With food", "Before food", "After food", "Without food"];
 
 const presets = {
   feelings: ["Good", "Tired", "Anxious", "Low", "Irritable", "Confused", "In pain", "Nauseous"],
@@ -57,6 +69,13 @@ const entryForm = document.querySelector("#entryForm");
 const dynamicFields = document.querySelector("#dynamicFields");
 const patientForm = document.querySelector("#patientForm");
 const settingsForm = document.querySelector("#settingsForm");
+const medsPlanForm = document.querySelector("#medsPlanForm");
+const medsPlanEditor = document.querySelector("#medsPlanEditor");
+const medsPlanReadable = document.querySelector("#medsPlanReadable");
+const medsPlanSyncHint = document.querySelector("#medsPlanSyncHint");
+const medicationNamesList = document.querySelector("#medicationNamesList");
+const addMedsPlanItemButton = document.querySelector("#addMedsPlanItemButton");
+const saveMedsPlanButton = document.querySelector("#saveMedsPlanButton");
 const medicationSettingsList = document.querySelector("#medicationSettingsList");
 const caregiverSettingsList = document.querySelector("#caregiverSettingsList");
 const saveSettingsTopButton = document.querySelector("#saveSettingsTopButton");
@@ -85,12 +104,15 @@ const dirtySettings = {
   caregiver: new Set(),
   sheet: false
 };
+let isMedsPlanDirty = false;
+const expandedMedsPlanItems = new Set();
 
 function loadState() {
   const savedEntries = localStorage.getItem(STORAGE_KEY);
   const savedPatient = localStorage.getItem(PATIENT_KEY);
   const savedMedications = localStorage.getItem(MEDICATION_OPTIONS_KEY);
   const savedCaregivers = localStorage.getItem(CAREGIVER_OPTIONS_KEY);
+  const savedMedsPlan = localStorage.getItem(MEDS_PLAN_KEY);
   const savedSheetApiUrl = localStorage.getItem(SHEET_API_URL_KEY);
   const setupSheetApiUrl = setupSheetUrlFromLocation();
 
@@ -98,12 +120,14 @@ function loadState() {
   state.patient = savedPatient ? JSON.parse(savedPatient) : state.patient;
   presets.medications = normalizeMedicationOptions(savedMedications ? JSON.parse(savedMedications) : presets.medications);
   presets.caregivers = savedCaregivers ? JSON.parse(savedCaregivers) : presets.caregivers;
+  state.medsPlan = normalizeMedsPlan(savedMedsPlan ? JSON.parse(savedMedsPlan) : []);
   sheetApiUrl = setupSheetApiUrl || savedSheetApiUrl || DEFAULT_SHEET_API_URL;
 
   if (!savedEntries) saveEntries();
   if (!savedPatient) savePatient();
   if (!savedMedications || savedMedications.includes('"')) saveMedicationOptions();
   if (!savedCaregivers) saveCaregiverOptions();
+  if (!savedMedsPlan) saveMedsPlanLocal();
   if (setupSheetApiUrl) saveSheetApiUrlValue(setupSheetApiUrl);
 }
 
@@ -113,6 +137,10 @@ function seedEntries() {
 
 function saveEntries() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.entries));
+}
+
+function saveMedsPlanLocal() {
+  localStorage.setItem(MEDS_PLAN_KEY, JSON.stringify(state.medsPlan));
 }
 
 function syncEnabled() {
@@ -171,6 +199,16 @@ async function loadEntriesFromSheet() {
   render();
 }
 
+async function loadMedsPlanFromSheet() {
+  if (!syncEnabled()) return;
+  const response = await jsonpRequest({ action: "listMedicationPlan" });
+  if (!response.ok) throw new Error(response.error || "Could not load medication plan.");
+  state.medsPlan = normalizeMedsPlan(response.plan || []);
+  saveMedsPlanLocal();
+  isMedsPlanDirty = false;
+  render();
+}
+
 async function refreshSheetNow() {
   if (!syncEnabled()) {
     alert("Google Sheets sync is not configured.");
@@ -183,7 +221,7 @@ async function refreshSheetNow() {
   syncButton.innerHTML = '<span class="material-symbols-outlined">progress_activity</span>';
 
   try {
-    await loadEntriesFromSheet();
+    await Promise.all([loadEntriesFromSheet(), loadMedsPlanFromSheet()]);
     syncButton.innerHTML = '<span class="material-symbols-outlined">cloud_done</span>';
     syncButton.title = "Spreadsheet refreshed";
     syncButton.setAttribute("aria-label", "Spreadsheet refreshed");
@@ -202,6 +240,16 @@ async function refreshSheetNow() {
   }
 }
 
+async function saveMedsPlanToSheet() {
+  if (!syncEnabled()) return false;
+  await fetch(sheetApiUrl, {
+    method: "POST",
+    mode: "no-cors",
+    body: JSON.stringify({ action: "saveMedicationPlan", plan: state.medsPlan })
+  });
+  return true;
+}
+
 async function appendEntryToSheet(entry) {
   if (!syncEnabled()) return false;
   await fetch(sheetApiUrl, {
@@ -214,12 +262,9 @@ async function appendEntryToSheet(entry) {
 
 async function deleteEntryFromSheet(id) {
   if (!syncEnabled() || !id) return false;
-  await fetch(sheetApiUrl, {
-    method: "POST",
-    mode: "no-cors",
-    body: JSON.stringify({ action: "deleteLog", id })
-  });
-  return true;
+  const response = await jsonpRequest({ action: "deleteLog", id });
+  if (!response.ok) throw new Error(response.error || "Could not delete the log from Google Sheets.");
+  return response.deleted;
 }
 
 function refreshEntriesFromSheetSoon() {
@@ -932,6 +977,284 @@ function renderSettings() {
     .join("");
 }
 
+function normalizeMedsPlan(plan) {
+  return (Array.isArray(plan) ? plan : []).map((item, index) => ({
+    id: item.id || crypto.randomUUID(),
+    medicationName: item.medicationName || "",
+    dose: item.dose || "",
+    time: item.time || "",
+    sortOrder: Number.isFinite(Number(item.sortOrder)) ? Number(item.sortOrder) : index + 1,
+    foodInstruction: foodInstructions.includes(item.foodInstruction) ? item.foodInstruction : "No food instruction",
+    notes: item.notes || "",
+    isActive: item.isActive === false || item.isActive === "false" ? false : true
+  }));
+}
+
+function activeMedsPlan() {
+  return state.medsPlan
+    .filter((item) => item.isActive && item.medicationName)
+    .sort((a, b) => `${a.time || "99:99"}-${String(a.sortOrder).padStart(4, "0")}-${a.medicationName}`.localeCompare(`${b.time || "99:99"}-${String(b.sortOrder).padStart(4, "0")}-${b.medicationName}`));
+}
+
+function foodInstructionText(value) {
+  return value && value !== "No food instruction" ? value : "";
+}
+
+function medsPlanMeta(item) {
+  return [item.dose, foodInstructionText(item.foodInstruction), item.notes].filter(Boolean).join(" · ");
+}
+
+function medsPlanSummaryMeta(item) {
+  return [
+    item.time ? formatPlanTime(item.time) : "No time set",
+    item.dose,
+    foodInstructionText(item.foodInstruction),
+    item.isActive ? "" : "Inactive"
+  ].filter(Boolean).join(" · ") || "No details yet";
+}
+
+function medsPlanTimeGroups() {
+  const groups = new Map();
+  activeMedsPlan().forEach((item) => {
+    const time = item.time || "No time set";
+    if (!groups.has(time)) groups.set(time, []);
+    groups.get(time).push(item);
+  });
+  return [...groups.entries()];
+}
+
+function medsPlanMedicationGroups() {
+  const groups = new Map();
+  activeMedsPlan().forEach((item) => {
+    const name = item.medicationName || "Medication";
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(item);
+  });
+  return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+}
+
+function renderMedsPlanReadable() {
+  const groups = state.medsPlanView === "medication" ? medsPlanMedicationGroups() : medsPlanTimeGroups();
+  if (!groups.length) {
+    medsPlanReadable.innerHTML = '<div class="empty-state">No meds plan yet. Add the first medication time below.</div>';
+    return;
+  }
+
+  medsPlanReadable.innerHTML = groups.map(([heading, items]) => `
+    <section class="meds-plan-group">
+      <div class="meds-plan-group-heading">
+        <strong>${escapeHtml(state.medsPlanView === "medication" ? heading : formatPlanTime(heading))}</strong>
+        <span>${items.length} ${items.length === 1 ? "item" : "items"}</span>
+      </div>
+      <div class="meds-plan-items">
+        ${items.map((item) => `
+          <article class="meds-plan-item">
+            <div class="meds-plan-item-main">
+              <h4>${escapeHtml(state.medsPlanView === "medication" ? formatPlanTime(item.time || "No time set") : item.medicationName)}</h4>
+              <p>${escapeHtml(medsPlanMeta(item) || "No extra instruction")}</p>
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `).join("");
+}
+
+function formatPlanTime(value) {
+  if (!/^\d{2}:\d{2}$/.test(String(value))) return value;
+  return formatTime(value);
+}
+
+function renderMedsPlanEditor() {
+  medsPlanSyncHint.textContent = syncEnabled()
+    ? "Google Sheets sync is configured for the meds plan."
+    : "Showing the cached meds plan on this device.";
+  medsPlanSyncHint.classList.toggle("is-synced", syncEnabled());
+  saveMedsPlanButton.disabled = !isMedsPlanDirty;
+  medicationNamesList.innerHTML = medicationNames().map((name) => `<option value="${escapeHtml(name)}"></option>`).join("");
+
+  document.querySelectorAll("[data-meds-plan-view]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.medsPlanView === state.medsPlanView);
+  });
+
+  medsPlanEditor.innerHTML = state.medsPlan.length ? state.medsPlan
+    .map((item, index) => {
+      const isExpanded = expandedMedsPlanItems.has(item.id);
+      return `
+        <article class="meds-plan-editor-card ${isExpanded ? "is-expanded" : ""}" data-plan-index="${index}">
+          <div class="meds-plan-card-summary">
+            <div class="meds-plan-card-copy">
+              <h4>${escapeHtml(item.medicationName || "New medication")}</h4>
+              <p>${escapeHtml(medsPlanSummaryMeta(item))}</p>
+            </div>
+            <div class="meds-plan-summary-actions">
+              <button class="icon-button meds-plan-icon-action" data-edit-plan-item="${index}" type="button" title="${isExpanded ? "Collapse medication plan item" : "Edit medication plan item"}" aria-label="${isExpanded ? "Collapse medication plan item" : "Edit medication plan item"}">
+                <span class="material-symbols-outlined">edit</span>
+              </button>
+              <button class="icon-button meds-plan-icon-action danger" data-remove-plan-item="${index}" type="button" title="Delete medication plan item" aria-label="Delete medication plan item">
+                <span class="material-symbols-outlined">delete</span>
+              </button>
+            </div>
+          </div>
+          ${isExpanded ? `
+            <div class="meds-plan-editor-row">
+              <label>
+                Medication
+                <input name="planMedication_${index}" type="text" list="medicationNamesList" value="${escapeHtml(item.medicationName)}" placeholder="Medication name" />
+              </label>
+              <label>
+                Dose
+                <input name="planDose_${index}" type="text" value="${escapeHtml(item.dose)}" placeholder="e.g. 4mg" />
+              </label>
+              <label>
+                Time
+                <span class="control-icon-field">
+                  <input name="planTime_${index}" type="text" inputmode="numeric" pattern="[0-9]{2}:[0-9]{2}" value="${escapeHtml(item.time)}" placeholder="09:00" />
+                  <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+                </span>
+              </label>
+              <label>
+                Order
+                <input name="planOrder_${index}" type="number" min="1" step="1" value="${escapeHtml(item.sortOrder)}" />
+              </label>
+              <label>
+                Food
+                <select name="planFood_${index}">
+                  ${selectOptions(foodInstructions, item.foodInstruction)}
+                </select>
+              </label>
+              <label class="meds-plan-notes-field">
+                Notes
+                <input name="planNotes_${index}" type="text" value="${escapeHtml(item.notes)}" placeholder="Extra instruction" />
+              </label>
+              <label class="meds-plan-active-field">
+                Active
+                <select name="planActive_${index}">
+                  <option value="true" ${item.isActive ? "selected" : ""}>Active</option>
+                  <option value="false" ${!item.isActive ? "selected" : ""}>Inactive</option>
+                </select>
+              </label>
+              <div class="meds-plan-card-actions">
+                <button class="ghost-button meds-plan-remove" data-remove-plan-item="${index}" type="button">
+                  <span class="material-symbols-outlined">delete</span>
+                  Remove
+                </button>
+                <button class="primary-button meds-plan-save-item" data-save-plan-item="${index}" type="button">
+                  <span class="material-symbols-outlined">save</span>
+                  Save
+                </button>
+              </div>
+            </div>
+          ` : ""}
+        </article>
+      `;
+    }).join("") : '<div class="empty-state">No editable medication times yet.</div>';
+}
+
+function renderMedsPlan() {
+  renderMedsPlanReadable();
+  renderMedsPlanEditor();
+}
+
+function medsPlanModalHtml() {
+  const groups = medsPlanTimeGroups();
+  if (!groups.length) return '<p class="helper-text">No active meds plan saved yet.</p>';
+
+  return groups.map(([time, items]) => `
+    <section class="meds-plan-modal-group">
+      <strong>${escapeHtml(formatPlanTime(time))}</strong>
+      ${items.map((item) => `
+        <div class="meds-plan-modal-item">
+          <div>
+            <h4>${escapeHtml(item.medicationName)}</h4>
+            <p>${escapeHtml(medsPlanMeta(item) || "No extra instruction")}</p>
+          </div>
+          <button class="text-button" data-use-plan-item="${escapeHtml(item.id)}" type="button">Use</button>
+        </div>
+      `).join("")}
+    </section>
+  `).join("");
+}
+
+function useMedsPlanItem(id) {
+  const item = state.medsPlan.find((planItem) => planItem.id === id);
+  if (!item) return;
+  if (entryForm.elements.medicationName && medicationNames().includes(item.medicationName)) {
+    entryForm.elements.medicationName.value = item.medicationName;
+  }
+  if (entryForm.elements.dose) entryForm.elements.dose.value = item.dose || medicationDefaultDose(item.medicationName);
+}
+
+function updateMedsPlanFromForm(options = {}) {
+  const shouldMarkDirty = options.markDirty !== false;
+  const data = new FormData(medsPlanForm);
+  state.medsPlan = state.medsPlan.map((item, index) => ({
+    ...item,
+    medicationName: data.has(`planMedication_${index}`) ? data.get(`planMedication_${index}`).trim() : item.medicationName,
+    dose: data.has(`planDose_${index}`) ? data.get(`planDose_${index}`).trim() : item.dose,
+    time: data.has(`planTime_${index}`) ? data.get(`planTime_${index}`) : item.time,
+    sortOrder: data.has(`planOrder_${index}`) ? Number(data.get(`planOrder_${index}`)) || index + 1 : item.sortOrder,
+    foodInstruction: data.has(`planFood_${index}`) ? data.get(`planFood_${index}`) || "No food instruction" : item.foodInstruction,
+    notes: data.has(`planNotes_${index}`) ? data.get(`planNotes_${index}`).trim() : item.notes,
+    isActive: data.has(`planActive_${index}`) ? data.get(`planActive_${index}`) !== "false" : item.isActive
+  }));
+  if (shouldMarkDirty) isMedsPlanDirty = true;
+  saveMedsPlanLocal();
+  saveMedsPlanButton.disabled = !isMedsPlanDirty;
+  renderMedsPlanReadable();
+}
+
+function addMedsPlanItem() {
+  const item = {
+    id: crypto.randomUUID(),
+    medicationName: medicationNames()[0] || "",
+    dose: medicationDefaultDose(medicationNames()[0] || ""),
+    time: "",
+    sortOrder: state.medsPlan.length + 1,
+    foodInstruction: "No food instruction",
+    notes: "",
+    isActive: true
+  };
+  state.medsPlan.push(item);
+  expandedMedsPlanItems.add(item.id);
+  isMedsPlanDirty = true;
+  saveMedsPlanLocal();
+  renderMedsPlan();
+}
+
+async function saveMedsPlanItem(index) {
+  updateMedsPlanFromForm();
+  const item = state.medsPlan[index];
+  if (item) expandedMedsPlanItems.delete(item.id);
+  await saveMedsPlan();
+}
+
+async function saveMedsPlan() {
+  updateMedsPlanFromForm();
+  if (!syncEnabled()) {
+    alert("Meds plan saved on this device. Add the Apps Script Web App URL in Settings to sync it.");
+    isMedsPlanDirty = false;
+    renderMedsPlan();
+    return;
+  }
+
+  saveMedsPlanButton.disabled = true;
+  saveMedsPlanButton.innerHTML = '<span class="material-symbols-outlined">progress_activity</span> Saving';
+  try {
+    await saveMedsPlanToSheet();
+    isMedsPlanDirty = false;
+    saveMedsPlanButton.innerHTML = '<span class="material-symbols-outlined">check</span> Saved';
+    window.setTimeout(() => {
+      saveMedsPlanButton.innerHTML = '<span class="material-symbols-outlined">save</span> Save meds plan';
+      renderMedsPlan();
+    }, 1200);
+  } catch (error) {
+    saveMedsPlanButton.innerHTML = '<span class="material-symbols-outlined">save</span> Save meds plan';
+    saveMedsPlanButton.disabled = false;
+    alert(error.message || "Could not save the meds plan.");
+  }
+}
+
 function settingsActionButton(kind, index, isDirty) {
   const action = isDirty ? "save" : "remove";
   const icon = isDirty ? "save" : "delete";
@@ -947,6 +1270,7 @@ function settingsActionButton(kind, index, isDirty) {
 function render() {
   dateLabel.textContent = formatDisplayDate();
   renderToday();
+  renderMedsPlan();
   renderHistory();
   renderPatient();
   renderSettings();
@@ -955,7 +1279,7 @@ function render() {
 
 function setRoute(route) {
   state.route = route;
-  routeTitle.textContent = route.charAt(0).toUpperCase() + route.slice(1);
+  routeTitle.textContent = routeTitles[route] || route.charAt(0).toUpperCase() + route.slice(1);
   document.querySelectorAll("[data-route-panel]").forEach((panel) => {
     panel.classList.toggle("is-active", panel.dataset.routePanel === route);
   });
@@ -1153,6 +1477,15 @@ function fieldsForType(type) {
           <input name="newCaregiverName" type="text" placeholder="Caregiver name" />
         </label>
       </div>
+      <details class="meds-plan-accordion">
+        <summary>
+          <span class="material-symbols-outlined">medication_liquid</span>
+          View meds plan
+        </summary>
+        <div class="meds-plan-modal-list">
+          ${medsPlanModalHtml()}
+        </div>
+      </details>
     `;
   }
 
@@ -1262,9 +1595,16 @@ function deleteEntry(id) {
   if (syncEnabled()) {
     deleteEntryFromSheet(id)
       .then((didSync) => {
-        if (didSync) refreshEntriesFromSheetSoon();
+        if (didSync) {
+          refreshEntriesFromSheetSoon();
+          return;
+        }
+        loadEntriesFromSheet().catch(() => {});
       })
-      .catch(() => {});
+      .catch((error) => {
+        loadEntriesFromSheet().catch(() => {});
+        alert(error.message || "Could not delete the log from Google Sheets.");
+      });
   }
 }
 
@@ -1404,6 +1744,46 @@ document.querySelector("#emailExportButton").addEventListener("click", sharePdfE
 document.querySelector("#previewPdfButton").addEventListener("click", previewPdfExport);
 document.querySelector("#printPdfButton").addEventListener("click", printPdfExport);
 syncButton.addEventListener("click", refreshSheetNow);
+addMedsPlanItemButton.addEventListener("click", addMedsPlanItem);
+saveMedsPlanButton.addEventListener("click", saveMedsPlan);
+document.querySelectorAll("[data-meds-plan-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.medsPlanView = button.dataset.medsPlanView;
+    renderMedsPlan();
+  });
+});
+medsPlanForm.addEventListener("input", updateMedsPlanFromForm);
+medsPlanForm.addEventListener("change", updateMedsPlanFromForm);
+medsPlanEditor.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-edit-plan-item]");
+  if (editButton) {
+    updateMedsPlanFromForm({ markDirty: false });
+    const item = state.medsPlan[Number(editButton.dataset.editPlanItem)];
+    if (!item) return;
+    if (expandedMedsPlanItems.has(item.id)) {
+      expandedMedsPlanItems.delete(item.id);
+    } else {
+      expandedMedsPlanItems.add(item.id);
+    }
+    renderMedsPlan();
+    return;
+  }
+
+  const saveButton = event.target.closest("[data-save-plan-item]");
+  if (saveButton) {
+    saveMedsPlanItem(Number(saveButton.dataset.savePlanItem));
+    return;
+  }
+
+  const removeButton = event.target.closest("[data-remove-plan-item]");
+  if (!removeButton) return;
+  const item = state.medsPlan[Number(removeButton.dataset.removePlanItem)];
+  if (item) expandedMedsPlanItems.delete(item.id);
+  state.medsPlan.splice(Number(removeButton.dataset.removePlanItem), 1);
+  isMedsPlanDirty = true;
+  saveMedsPlanLocal();
+  renderMedsPlan();
+});
 document.querySelector("#addMedicationSetting").addEventListener("click", () => {
   presets.medications.push({ name: "", defaultDose: "" });
   dirtySettings.medication.add(presets.medications.length - 1);
@@ -1468,6 +1848,12 @@ dynamicFields.addEventListener("click", (event) => {
   const doseButton = event.target.closest("[data-dose-step]");
   if (doseButton) {
     stepMedicationDose(Number(doseButton.dataset.doseStep));
+    return;
+  }
+
+  const planButton = event.target.closest("[data-use-plan-item]");
+  if (planButton) {
+    useMedsPlanItem(planButton.dataset.usePlanItem);
     return;
   }
 
@@ -1561,3 +1947,4 @@ setNavCollapsed(localStorage.getItem(NAV_KEY) === "true");
 setRoute("today");
 render();
 loadEntriesFromSheet().catch(() => {});
+loadMedsPlanFromSheet().catch(() => {});
